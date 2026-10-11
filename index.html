@@ -1,201 +1,609 @@
+```html
 <!DOCTYPE html>
 <html lang="ko">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>철도 배차간격 & 다이아그램 시뮬레이터</title>
-    <!-- Plotly.js 라이브러리 로드 -->
+    <title>고급 철도 운행 다이아그램 시뮬레이터</title>
     <script src="https://cdn.plot.ly/plotly-2.27.0.min.js"></script>
     <style>
-        body { font-family: 'Malgun Gothic', sans-serif; margin: 0; display: flex; color: #333; }
-        #sidebar { width: 320px; background-color: #f8f9fa; padding: 20px; box-shadow: 2px 0 5px rgba(0,0,0,0.1); height: 100vh; overflow-y: auto; box-sizing: border-box; }
-        #main { flex-grow: 1; padding: 30px; height: 100vh; overflow-y: auto; box-sizing: border-box; }
-        h1, h2, h3 { margin-top: 0; }
-        .input-group { margin-bottom: 15px; }
-        .input-group label { display: block; font-size: 14px; font-weight: bold; margin-bottom: 5px; }
-        .input-group input { width: 100%; padding: 8px; box-sizing: border-box; border: 1px solid #ccc; border-radius: 4px; }
-        .metrics { display: flex; gap: 20px; margin-bottom: 30px; }
-        .metric-card { background: #fff; border: 1px solid #ddd; padding: 20px; border-radius: 8px; flex: 1; text-align: center; box-shadow: 0 2px 4px rgba(0,0,0,0.05); }
-        .metric-value { font-size: 24px; font-weight: bold; color: #0056b3; margin-top: 10px; display: block; }
-        hr { border: 0; border-top: 1px solid #ddd; margin: 20px 0; }
+        :root {
+            --bg-color: #f3f4f6;
+            --panel-bg: #ffffff;
+            --text-main: #1f2937;
+            --text-muted: #6b7280;
+            --primary: #2563eb;
+            --primary-hover: #1d4ed8;
+            --border: #e5e7eb;
+            
+            /* 열차 등급별 색상 */
+            --color-local: #94a3b8;
+            --color-express: #ef4444;
+            --color-skipA: #10b981;
+            --color-skipB: #f59e0b;
+            --color-near: #8b5cf6;
+            --color-far: #0ea5e9;
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        
+        body {
+            font-family: 'Pretendard', 'Malgun Gothic', sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-main);
+            display: flex;
+            height: 100vh;
+            overflow: hidden;
+        }
+
+        /* 사이드바 스타일링 */
+        #sidebar {
+            width: 360px;
+            background-color: var(--panel-bg);
+            border-right: 1px solid var(--border);
+            padding: 20px;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+            box-shadow: 2px 0 10px rgba(0,0,0,0.05);
+            z-index: 10;
+        }
+
+        h1 { font-size: 1.25rem; font-weight: 800; color: var(--primary); text-align: center; margin-bottom: 10px; }
+        h2 { font-size: 1rem; font-weight: 700; padding-bottom: 5px; border-bottom: 2px solid var(--border); color: var(--text-main); margin-bottom: 15px;}
+
+        .section { background: #f9fafb; padding: 15px; border-radius: 8px; border: 1px solid var(--border); }
+        
+        .input-group { margin-bottom: 12px; }
+        .input-group:last-child { margin-bottom: 0; }
+        .input-group label { display: block; font-size: 0.85rem; font-weight: 600; color: var(--text-muted); margin-bottom: 4px; }
+        .input-row { display: flex; gap: 10px; }
+        .input-row .input-group { flex: 1; }
+        
+        input, select {
+            width: 100%;
+            padding: 8px 10px;
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            font-size: 0.9rem;
+            outline: none;
+            transition: border 0.2s;
+        }
+        input:focus, select:focus { border-color: var(--primary); }
+
+        /* 메인 콘텐츠 (그래프 및 통계) */
+        #main-content {
+            flex-grow: 1;
+            display: flex;
+            flex-direction: column;
+            padding: 20px;
+            gap: 20px;
+            overflow-y: auto;
+        }
+
+        .stats-container {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+        }
+
+        .stat-card {
+            background-color: var(--panel-bg);
+            padding: 15px 20px;
+            border-radius: 10px;
+            border: 1px solid var(--border);
+            box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05);
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+        }
+
+        .stat-card .label { font-size: 0.85rem; color: var(--text-muted); font-weight: 600; }
+        .stat-card .value { font-size: 1.5rem; font-weight: 800; color: var(--primary); }
+
+        #chart-container {
+            flex-grow: 1;
+            background-color: var(--panel-bg);
+            border-radius: 10px;
+            border: 1px solid var(--border);
+            box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05);
+            padding: 10px;
+            min-height: 500px;
+        }
+        
+        /* 범례 스타일 */
+        .legend-box { display: flex; gap: 15px; flex-wrap: wrap; margin-bottom: 10px; font-size: 0.85rem; font-weight: 600;}
+        .legend-item { display: flex; align-items: center; gap: 5px; }
+        .legend-color { width: 16px; height: 4px; border-radius: 2px; }
     </style>
 </head>
 <body>
 
-    <div id="sidebar">
-        <h2>노선 및 차량 설정</h2>
-        <div class="input-group">
-            <label>총 노선 길이 (km)</label>
-            <input type="number" id="distance" value="25" min="1" step="1">
-        </div>
-        <div class="input-group">
-            <label>총 역 개수</label>
-            <input type="number" id="stations" value="20" min="2" step="1">
-        </div>
-        <div class="input-group">
-            <label>최고 주행 속도 (km/h)</label>
-            <input type="number" id="max_speed" value="80" min="30" step="5">
-        </div>
-        <div class="input-group">
-            <label>역 정차 시간 (초)</label>
-            <input type="number" id="dwell_time" value="30" min="10" step="5">
-        </div>
-        <div class="input-group">
-            <label>종점 회차 시간 (분)</label>
-            <input type="number" id="turnaround" value="5" min="1" step="1">
-        </div>
-        <div class="input-group">
-            <label>투입 편성 수</label>
-            <input type="number" id="train_count" value="12" min="1" step="1">
-        </div>
+    <aside id="sidebar">
+        <h1>🚆 다이아그램 시뮬레이터 PRO</h1>
         
-        <hr>
-        <h3>차량 성능 (심화)</h3>
-        <div class="input-group">
-            <label>가속도 (km/h/s)</label>
-            <input type="number" id="accel" value="3.0" min="1.0" step="0.1">
-        </div>
-        <div class="input-group">
-            <label>감속도 (km/h/s)</label>
-            <input type="number" id="decel" value="3.5" min="1.0" step="0.1">
-        </div>
-    </div>
-
-    <div id="main">
-        <h1>🚆 철도 운행 도표 시뮬레이터</h1>
-        
-        <div class="metrics">
-            <div class="metric-card">배차 간격<span class="metric-value" id="res-headway">0 분</span></div>
-            <div class="metric-card">표정 속도<span class="metric-value" id="res-speed">0 km/h</span></div>
-            <div class="metric-card">편도 소요 시간<span class="metric-value" id="res-oneway">0 분</span></div>
-            <div class="metric-card">1주기 소요 시간<span class="metric-value" id="res-cycle">0 분</span></div>
+        <div class="section">
+            <h2>운행 패턴 설정</h2>
+            <div class="input-group">
+                <select id="patternSelect">
+                    <option value="all-stop">평행 (All-Stop, 전역정차)</option>
+                    <option value="express">완급결합 (Local / Express)</option>
+                    <option value="skip-stop">선택정차 (Skip-Stop, A/B 교대)</option>
+                    <option value="zonal">지역분리 (Zonal, 원근분리)</option>
+                </select>
+            </div>
         </div>
 
-        <div id="diagram-plot" style="width:100%; height:600px;"></div>
-    </div>
+        <div class="section">
+            <h2>인프라 및 차량 제원</h2>
+            <div class="input-row">
+                <div class="input-group">
+                    <label>노선 길이 (km)</label>
+                    <input type="number" id="distance" value="30" min="5" step="1">
+                </div>
+                <div class="input-group">
+                    <label>역 개수</label>
+                    <input type="number" id="stations" value="21" min="5" step="1">
+                </div>
+            </div>
+            <div class="input-row">
+                <div class="input-group">
+                    <label>최고 속도 (km/h)</label>
+                    <input type="number" id="maxSpeed" value="100" min="30" step="5">
+                </div>
+                <div class="input-group">
+                    <label>정차 시간 (초)</label>
+                    <input type="number" id="dwellTime" value="30" min="10" step="5">
+                </div>
+            </div>
+            <div class="input-row">
+                <div class="input-group">
+                    <label>가속도 (km/h/s)</label>
+                    <input type="number" id="accel" value="3.0" min="1.0" step="0.1">
+                </div>
+                <div class="input-group">
+                    <label>감속도 (km/h/s)</label>
+                    <input type="number" id="decel" value="3.5" min="1.0" step="0.1">
+                </div>
+            </div>
+        </div>
+
+        <div class="section">
+            <h2>시간표 및 배차간격</h2>
+            <div class="input-row">
+                <div class="input-group">
+                    <label>첫차 시각</label>
+                    <input type="time" id="firstTrain" value="05:00">
+                </div>
+                <div class="input-group">
+                    <label>막차 시각</label>
+                    <input type="time" id="lastTrain" value="23:30">
+                </div>
+            </div>
+            <div class="input-row">
+                <div class="input-group">
+                    <label>RH 배차 (분)</label>
+                    <input type="number" id="rhInterval" value="4.5" min="1" step="0.5">
+                </div>
+                <div class="input-group">
+                    <label>NH 배차 (분)</label>
+                    <input type="number" id="nhInterval" value="8.0" min="1" step="0.5">
+                </div>
+            </div>
+            <div class="input-row">
+                <div class="input-group">
+                    <label>아침 RH 시작~종료</label>
+                    <div style="display:flex; gap:5px;">
+                        <input type="time" id="mRhStart" value="07:00">
+                        <input type="time" id="mRhEnd" value="09:00">
+                    </div>
+                </div>
+            </div>
+            <div class="input-row">
+                <div class="input-group">
+                    <label>저녁 RH 시작~종료</label>
+                    <div style="display:flex; gap:5px;">
+                        <input type="time" id="eRhStart" value="18:00">
+                        <input type="time" id="eRhEnd" value="20:00">
+                    </div>
+                </div>
+            </div>
+        </div>
+    </aside>
+
+    <main id="main-content">
+        <div class="stats-container">
+            <div class="stat-card">
+                <span class="label">총 운행 횟수 (편도 기준)</span>
+                <span class="value" id="stat-runs">0 회</span>
+            </div>
+            <div class="stat-card">
+                <span class="label">평균 역간 거리</span>
+                <span class="value" id="stat-dist">0 km</span>
+            </div>
+            <div class="stat-card">
+                <span class="label">완행 편도 소요시간</span>
+                <span class="value" id="stat-time">0 분</span>
+            </div>
+            <div class="stat-card">
+                <span class="label">표정속도 (완행)</span>
+                <span class="value" id="stat-speed">0 km/h</span>
+            </div>
+        </div>
+
+        <div id="chart-container">
+            <div class="legend-box" id="legendBox">
+                <!-- 동적 범례 생성 -->
+            </div>
+            <div id="plot" style="width: 100%; height: calc(100% - 30px);"></div>
+        </div>
+    </main>
 
     <script>
-        function calculateAndDraw() {
-            // 1. 입력값 가져오기
-            const distance_km = parseFloat(document.getElementById('distance').value);
-            const stations = parseInt(document.getElementById('stations').value);
-            const max_speed_kmh = parseFloat(document.getElementById('max_speed').value);
-            const dwell_time_s = parseFloat(document.getElementById('dwell_time').value);
-            const turnaround_min = parseFloat(document.getElementById('turnaround').value);
-            const train_count = parseInt(document.getElementById('train_count').value);
-            const accel_kmhs = parseFloat(document.getElementById('accel').value);
-            const decel_kmhs = parseFloat(document.getElementById('decel').value);
-
-            // 2. 물리 엔진 연산
-            const avg_dist_m = (distance_km * 1000) / (stations - 1);
-            const max_speed_ms = max_speed_kmh / 3.6;
-            const accel_ms2 = accel_kmhs / 3.6;
-            const decel_ms2 = decel_kmhs / 3.6;
-
-            const time_accel = max_speed_ms / accel_ms2;
-            const time_decel = max_speed_ms / decel_ms2;
-            const dist_accel = 0.5 * accel_ms2 * Math.pow(time_accel, 2);
-            const dist_decel = 0.5 * decel_ms2 * Math.pow(time_decel, 2);
-
-            let run_time_s;
-            // 삼각형 주행 패턴 (최고속도 도달 불가)
-            if (dist_accel + dist_decel >= avg_dist_m) {
-                const peak_speed = Math.sqrt((2 * avg_dist_m) / ((1/accel_ms2) + (1/decel_ms2)));
-                run_time_s = (peak_speed / accel_ms2) + (peak_speed / decel_ms2);
-            } else {
-                // 사다리꼴 주행 패턴 (정속 주행 구간 존재)
-                const dist_cruise = avg_dist_m - (dist_accel + dist_decel);
-                const time_cruise = dist_cruise / max_speed_ms;
-                run_time_s = time_accel + time_cruise + time_decel;
-            }
-
-            // 3. 시간표 및 배차간격 도출
-            const oneway_time_s = (run_time_s * (stations - 1)) + (dwell_time_s * (stations - 2));
-            const oneway_time_min = oneway_time_s / 60;
-            const cycle_time_min = (oneway_time_min * 2) + (turnaround_min * 2);
-            const scheduled_speed_kmh = distance_km / (oneway_time_min / 60);
-            const headway_min = cycle_time_min / train_count;
-
-            // 4. UI 텍스트 업데이트
-            document.getElementById('res-headway').innerText = headway_min.toFixed(2) + " 분";
-            document.getElementById('res-speed').innerText = scheduled_speed_kmh.toFixed(1) + " km/h";
-            document.getElementById('res-oneway').innerText = oneway_time_min.toFixed(1) + " 분";
-            document.getElementById('res-cycle').innerText = cycle_time_min.toFixed(1) + " 분";
-
-            // 5. 다이아그램 데이터 생성
-            const sim_duration = 120; // 2시간 렌더링
-            const num_trains_to_plot = Math.floor(sim_duration / headway_min);
-            
-            let station_positions = [];
-            let base_station_times = [];
-            let current_t = 0;
-
-            for (let i = 0; i < stations; i++) {
-                station_positions.push((i * avg_dist_m) / 1000);
-                base_station_times.push(current_t);
-                if (i < stations - 1) {
-                    current_t += (run_time_s + dwell_time_s) / 60;
-                }
-            }
-
-            let traces = [];
-
-            // 하행선
-            for (let i = 0; i < num_trains_to_plot; i++) {
-                let start_offset = i * headway_min;
-                let t_vals = base_station_times.map(t => t + start_offset);
-                traces.push({
-                    x: t_vals,
-                    y: station_positions,
-                    mode: 'lines',
-                    name: '하행',
-                    line: {color: '#2563eb', width: 1.5},
-                    showlegend: false,
-                    hoverinfo: 'none'
-                });
-            }
-
-            // 상행선 (교차 투입)
-            let reversed_positions = [...station_positions].reverse();
-            for (let i = 0; i < num_trains_to_plot; i++) {
-                let start_offset = (i * headway_min) + (headway_min / 2);
-                let t_vals = base_station_times.map(t => t + start_offset);
-                traces.push({
-                    x: t_vals,
-                    y: reversed_positions,
-                    mode: 'lines',
-                    name: '상행',
-                    line: {color: '#dc2626', width: 1.5},
-                    showlegend: false,
-                    hoverinfo: 'none'
-                });
-            }
-
-            // 6. Plotly 렌더링
-            const layout = {
-                xaxis: { title: '시간 (분)', showgrid: true, gridcolor: '#e5e7eb', dtick: 5 },
-                yaxis: { 
-                    title: '거리 (km)', 
-                    autorange: 'reversed', // 철도 도표 관례
-                    tickvals: station_positions,
-                    ticktext: station_positions.map((val, idx) => '역 ' + (idx + 1))
-                },
-                margin: { l: 60, r: 20, t: 20, b: 50 },
-                plot_bgcolor: '#ffffff',
-                paper_bgcolor: '#ffffff'
-            };
-
-            Plotly.newPlot('diagram-plot', traces, layout, {responsive: true});
+        // --- 1. 유틸리티 함수 ---
+        // "HH:MM" 포맷을 자정 기준 분(Minute)으로 변환 (새벽 3시 이전은 다음날로 간주)
+        function timeToMinutes(timeStr) {
+            let [h, m] = timeStr.split(':').map(Number);
+            if (h <= 3) h += 24; 
+            return h * 60 + m;
         }
 
-        // 이벤트 리스너 등록 (값이 바뀔 때마다 실시간 렌더링)
-        const inputs = document.querySelectorAll('input');
-        inputs.forEach(input => {
-            input.addEventListener('input', calculateAndDraw);
+        // 특정 분(Minute)이 RH(혼잡 시간대)에 속하는지 판별
+        function isRH(mins, rhConfig) {
+            return (mins >= rhConfig.mStart && mins <= rhConfig.mEnd) || 
+                   (mins >= rhConfig.eStart && mins <= rhConfig.eEnd);
+        }
+
+        // 분(Minute)을 Plotly X축에 사용할 임의의 Date 객체로 변환
+        // 연월일은 고정하고 시/분만 사용.
+        function minutesToDate(mins) {
+            const date = new Date(2000, 0, 1, 0, 0, 0);
+            date.setMinutes(mins);
+            return date;
+        }
+
+        // --- 2. 물리 엔진 (주행 시간 계산) ---
+        /**
+         * 시작역에서 도착역까지의 주행 거리를 기반으로, 
+         * 중간에 통과하는 지점들의 도달 시간을 정확히 계산합니다.
+         */
+        function calculateRunTimes(dist_m, accel_ms2, decel_ms2, vmax_ms, intermediate_dists) {
+            const t_accel = vmax_ms / accel_ms2;
+            const t_decel = vmax_ms / decel_ms2;
+            const d_accel = 0.5 * accel_ms2 * Math.pow(t_accel, 2);
+            const d_decel = 0.5 * decel_ms2 * Math.pow(t_decel, 2);
+
+            let runTimes = [];
+            let isTriangle = (d_accel + d_decel >= dist_m);
+            
+            let v_peak = vmax_ms;
+            let actual_t_accel = t_accel;
+            let actual_d_accel = d_accel;
+            let total_time = 0;
+
+            if (isTriangle) {
+                // 역간 거리가 짧아 최고속도에 도달하지 못하는 삼각형 패턴
+                v_peak = Math.sqrt((2 * dist_m) / ((1/accel_ms2) + (1/decel_ms2)));
+                actual_t_accel = v_peak / accel_ms2;
+                actual_d_accel = 0.5 * accel_ms2 * Math.pow(actual_t_accel, 2);
+                total_time = (v_peak / accel_ms2) + (v_peak / decel_ms2);
+            } else {
+                // 사다리꼴 패턴 (가속 -> 정속 -> 감속)
+                const d_cruise = dist_m - (d_accel + d_decel);
+                const t_cruise = d_cruise / vmax_ms;
+                total_time = t_accel + t_cruise + t_decel;
+            }
+
+            // 각 중간 통과 지점(역)별 도달 시간 계산
+            for (let d of intermediate_dists) {
+                if (d === 0) {
+                    runTimes.push(0);
+                } else if (d >= dist_m - 0.1) { // 부동소수점 오차 보정
+                    runTimes.push(total_time);
+                } else {
+                    if (d <= actual_d_accel) {
+                        // 가속 구간 통과 중
+                        runTimes.push(Math.sqrt(2 * d / accel_ms2));
+                    } else if (d > dist_m - (0.5 * decel_ms2 * Math.pow(v_peak/decel_ms2, 2))) {
+                        // 감속 구간 통과 중
+                        const d_rem = dist_m - d;
+                        runTimes.push(total_time - Math.sqrt(2 * d_rem / decel_ms2));
+                    } else {
+                        // 정속 구간 통과 중 (삼각형 패턴에서는 여기 오지 않음)
+                        runTimes.push(actual_t_accel + (d - actual_d_accel) / vmax_ms);
+                    }
+                }
+            }
+            
+            return { totalTime: total_time, timesAtPoints: runTimes };
+        }
+
+        // --- 3. 핵심 시뮬레이션 및 렌더링 로직 ---
+        function simulateAndRender() {
+            // 입력값 파싱
+            const dist_km = parseFloat(document.getElementById('distance').value);
+            const stations = parseInt(document.getElementById('stations').value);
+            const vmax_kmh = parseFloat(document.getElementById('maxSpeed').value);
+            const dwell_s = parseFloat(document.getElementById('dwellTime').value);
+            const accel_kmhs = parseFloat(document.getElementById('accel').value);
+            const decel_kmhs = parseFloat(document.getElementById('decel').value);
+            const pattern = document.getElementById('patternSelect').value;
+
+            // 시간 관련 입력값
+            const firstMins = timeToMinutes(document.getElementById('firstTrain').value);
+            const lastMins = timeToMinutes(document.getElementById('lastTrain').value);
+            const rhInterval = parseFloat(document.getElementById('rhInterval').value);
+            const nhInterval = parseFloat(document.getElementById('nhInterval').value);
+            
+            const rhConfig = {
+                mStart: timeToMinutes(document.getElementById('mRhStart').value),
+                mEnd: timeToMinutes(document.getElementById('mRhEnd').value),
+                eStart: timeToMinutes(document.getElementById('eRhStart').value),
+                eEnd: timeToMinutes(document.getElementById('eRhEnd').value)
+            };
+
+            // 물리 단위 변환
+            const vmax_ms = vmax_kmh / 3.6;
+            const accel_ms2 = accel_kmhs / 3.6;
+            const decel_ms2 = decel_kmhs / 3.6;
+            const avg_dist_m = (dist_km * 1000) / (stations - 1);
+
+            // 역 위치 정보 생성 [0, 1.5, 3.0, ...]
+            let stationPositions = [];
+            for(let i = 0; i < stations; i++) stationPositions.push(i * avg_dist_m);
+
+            // 다이아그램 라인 데이터를 담을 배열
+            let traces = [];
+            let totalRuns = 0;
+
+            // -- 열차 스케줄 생성기 --
+            function generateDepartures(startMin, endMin) {
+                let deps = [];
+                let current = startMin;
+                while (current <= endMin) {
+                    deps.push(current);
+                    current += isRH(current, rhConfig) ? rhInterval : nhInterval;
+                }
+                return deps;
+            }
+
+            const downboundDeps = generateDepartures(firstMins, lastMins);
+            // 상행은 하행과 교차되도록 첫차 시간에 기본 배차의 절반 오프셋 적용
+            const upboundStart = firstMins + (isRH(firstMins, rhConfig) ? rhInterval/2 : nhInterval/2);
+            const upboundDeps = generateDepartures(upboundStart, lastMins);
+
+            totalRuns = downboundDeps.length + upboundDeps.length;
+
+            // -- 정차 패턴 정의기 --
+            // trainIndex를 받아 각 역별 정차 여부(boolean array)와 시각적 속성을 반환
+            function getStopsAndStyle(trainIndex, direction) {
+                let stops = new Array(stations).fill(true);
+                let name = "완행";
+                let color = "var(--color-local)";
+
+                if (pattern === 'express') {
+                    if (trainIndex % 3 !== 0) { // 3대 중 1대 꼴로 급행 운행
+                        // 완행
+                    } else {
+                        // 급행: 4정거장마다 정차 (0, 4, 8...), 종점은 무조건 정차
+                        name = "급행";
+                        color = "var(--color-express)";
+                        for (let i = 1; i < stations - 1; i++) {
+                            if (i % 4 !== 0) stops[i] = false;
+                        }
+                    }
+                } else if (pattern === 'skip-stop') {
+                    // 메인역: 4정거장마다 (0, 4, 8...). 모두 정차
+                    const isMajor = (i) => i % 4 === 0 || i === stations - 1;
+                    if (trainIndex % 2 === 0) {
+                        name = "Skip-A"; color = "var(--color-skipA)";
+                        for (let i = 1; i < stations - 1; i++) {
+                            if (!isMajor(i) && i % 2 !== 1) stops[i] = false; // 홀수역 정차
+                        }
+                    } else {
+                        name = "Skip-B"; color = "var(--color-skipB)";
+                        for (let i = 1; i < stations - 1; i++) {
+                            if (!isMajor(i) && i % 2 !== 0) stops[i] = false; // 짝수역 정차
+                        }
+                    }
+                } else if (pattern === 'zonal') {
+                    const midIndex = Math.floor(stations / 2);
+                    if (trainIndex % 2 === 0) {
+                        name = "근거리"; color = "var(--color-near)";
+                        // 근거리: 0 ~ mid 까지만 운행하고 나머지 끊음 (하행/상행 방향에 맞춤)
+                        if (direction === 'down') {
+                            for (let i = midIndex + 1; i < stations; i++) stops[i] = null; // null은 운행 안함
+                        } else {
+                            for (let i = 0; i < midIndex; i++) stops[i] = null;
+                        }
+                    } else {
+                        name = "원거리"; color = "var(--color-far)";
+                        // 원거리: 근거리 구간은 무정차 통과, 원거리 구간은 전역 정차
+                        if (direction === 'down') {
+                            for (let i = 1; i < midIndex; i++) stops[i] = false;
+                        } else {
+                            for (let i = midIndex + 1; i < stations - 1; i++) stops[i] = false;
+                        }
+                    }
+                }
+                return { stops, name, color };
+            }
+
+            // 열차 시뮬레이터 (각 방향별 수행)
+            function simulateDirection(departures, direction) {
+                departures.forEach((depTime, tIndex) => {
+                    const profile = getStopsAndStyle(tIndex, direction);
+                    let { stops, name, color } = profile;
+                    
+                    let x_time = [];
+                    let y_dist = [];
+                    
+                    let currentMin = depTime;
+                    
+                    // 운행 시작점 찾기 (지역분리 패턴 처리용)
+                    let startIndex = direction === 'down' ? 0 : stations - 1;
+                    let endIndex = direction === 'down' ? stations - 1 : 0;
+                    let step = direction === 'down' ? 1 : -1;
+
+                    // 첫 역이 운행 취소(null)된 경우, 운행 시작역을 뒤로/앞으로 미룸
+                    while (stops[startIndex] === null && startIndex !== endIndex) {
+                        startIndex += step;
+                    }
+                    
+                    // 현재 정차해 있는 역
+                    let lastStopIndex = startIndex;
+                    x_time.push(minutesToDate(currentMin));
+                    y_dist.push(stationPositions[lastStopIndex] / 1000);
+
+                    // 다음 정차역을 찾아가며 시뮬레이션
+                    let i = startIndex + step;
+                    let hasFinished = false;
+
+                    while (!hasFinished) {
+                        if (stops[i] === null || i === endIndex + step) {
+                            hasFinished = true;
+                            break;
+                        }
+
+                        if (stops[i] === true || i === endIndex) {
+                            // 다음 정차역을 찾았음. 
+                            // lastStopIndex ~ i 구간 사이의 통과역들을 계산.
+                            let distToRun = Math.abs(stationPositions[i] - stationPositions[lastStopIndex]);
+                            
+                            // 통과역들과 도착역의 상대적 거리 배열 생성
+                            let intermediateDists = [];
+                            let k_start = Math.min(lastStopIndex, i);
+                            let k_end = Math.max(lastStopIndex, i);
+                            
+                            for (let k = k_start; k <= k_end; k++) {
+                                // 방향에 맞게 거리 계산 (현재 진행 구간 내의 거리)
+                                let d = Math.abs(stationPositions[k] - stationPositions[lastStopIndex]);
+                                intermediateDists.push(d);
+                            }
+                            // 방향에 맞게 거리 정렬 (가까운 역부터)
+                            intermediateDists.sort((a,b) => a - b);
+                            
+                            // 물리 엔진 호출
+                            const result = calculateRunTimes(distToRun, accel_ms2, decel_ms2, vmax_ms, intermediateDists);
+                            
+                            // 결과를 x_time, y_dist 배열에 추가
+                            // k_start ~ k_end 를 방향에 맞게 다시 순회하며 점을 찍음
+                            let pointCount = 0;
+                            let k_iter = lastStopIndex;
+                            while(k_iter !== i) {
+                                k_iter += step;
+                                pointCount++;
+                                let passTimeMins = currentMin + (result.timesAtPoints[pointCount] / 60);
+                                x_time.push(minutesToDate(passTimeMins));
+                                y_dist.push(stationPositions[k_iter] / 1000);
+                            }
+                            
+                            currentMin += (result.totalTime / 60); // 주행시간 추가
+                            if (i !== endIndex) { // 종점이 아니면 정차시간 추가
+                                currentMin += (dwell_s / 60);
+                                // 정차 시간 동안의 가로 선(대기) 표현
+                                x_time.push(minutesToDate(currentMin));
+                                y_dist.push(stationPositions[i] / 1000);
+                            }
+                            
+                            lastStopIndex = i;
+                        }
+                        i += step;
+                    }
+
+                    traces.push({
+                        x: x_time,
+                        y: y_dist,
+                        mode: 'lines',
+                        name: name,
+                        line: { color: color, width: 1.5, shape: 'linear' },
+                        hoverinfo: 'name+x+y',
+                        showlegend: false
+                    });
+                });
+            }
+
+            simulateDirection(downboundDeps, 'down');
+            simulateDirection(upboundDeps, 'up');
+
+            // 통계 수치 업데이트 (완행 기준)
+            const resultLocal = calculateRunTimes(avg_dist_m, accel_ms2, decel_ms2, vmax_ms, [0, avg_dist_m]);
+            const onewayTimeS = (resultLocal.totalTime * (stations - 1)) + (dwell_s * (stations - 2));
+            const onewayTimeMin = onewayTimeS / 60;
+            const scheduledSpeed = dist_km / (onewayTimeMin / 60);
+
+            document.getElementById('stat-runs').innerText = `${totalRuns} 회`;
+            document.getElementById('stat-dist').innerText = `${(avg_dist_m / 1000).toFixed(2)} km`;
+            document.getElementById('stat-time').innerText = `${onewayTimeMin.toFixed(1)} 분`;
+            document.getElementById('stat-speed').innerText = `${scheduledSpeed.toFixed(1)} km/h`;
+
+            // Plotly 렌더링 설정
+            const layout = {
+                margin: { l: 60, r: 20, t: 30, b: 40 },
+                xaxis: { 
+                    title: '시간',
+                    type: 'date',
+                    tickformat: '%H:%M',
+                    showgrid: true, 
+                    gridcolor: '#e5e7eb',
+                    hoverformat: '%H:%M'
+                },
+                yaxis: { 
+                    title: '거리 (km)', 
+                    autorange: 'reversed', // 철도 다이아그램 기본 (아래로 내려감)
+                    showgrid: true,
+                    gridcolor: '#e5e7eb',
+                    tickvals: stationPositions.map(d => d/1000),
+                    ticktext: stationPositions.map((_, idx) => `역 ${idx+1}`),
+                    zeroline: false
+                },
+                plot_bgcolor: '#ffffff',
+                paper_bgcolor: '#ffffff',
+                hovermode: 'closest'
+            };
+
+            Plotly.react('plot', traces, layout, {responsive: true});
+
+            // 범례 업데이트 (커스텀 HTML)
+            updateLegend(pattern);
+        }
+
+        // 범례 HTML 생성기
+        function updateLegend(pattern) {
+            const box = document.getElementById('legendBox');
+            let html = '';
+            
+            const createItem = (color, text) => 
+                `<div class="legend-item"><div class="legend-color" style="background-color: ${color}"></div><span>${text}</span></div>`;
+
+            if(pattern === 'all-stop') {
+                html += createItem('var(--color-local)', '완행 (All-Stop)');
+            } else if(pattern === 'express') {
+                html += createItem('var(--color-local)', '완행');
+                html += createItem('var(--color-express)', '급행');
+            } else if(pattern === 'skip-stop') {
+                html += createItem('var(--color-skipA)', 'Skip-A (홀수역)');
+                html += createItem('var(--color-skipB)', 'Skip-B (짝수역)');
+            } else if(pattern === 'zonal') {
+                html += createItem('var(--color-near)', '근거리 완행');
+                html += createItem('var(--color-far)', '원거리 급행');
+            }
+            box.innerHTML = html;
+        }
+
+        // 이벤트 리스너 바인딩
+        document.querySelectorAll('input, select').forEach(el => {
+            el.addEventListener('change', simulateAndRender);
+            // number input의 경우 입력 중에도 반응
+            if(el.type === 'number') {
+                el.addEventListener('input', simulateAndRender);
+            }
         });
 
-        // 초기 렌더링
-        calculateAndDraw();
+        // 초기 실행
+        simulateAndRender();
     </script>
 </body>
 </html>
+```

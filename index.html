@@ -123,7 +123,7 @@
     <script>
         const i18n = {
             ko: {
-                title: "🚆 고급 철도 운행 다이아그램 시뮬레이터", runBtn: "▶ 시뮬레이션 실행",
+                title: "🚆 철도 배차 및 다이아그램 시뮬레이터", runBtn: "▶ 시뮬레이션 실행",
                 tabSt: "역 설정", tabCl: "열차 등급", tabGb: "전역 설정",
                 stTitle: "노선 및 역 목록", stAdd: "+ 역 추가", stDesc: "* 거리(Dist)는 다음 역까지의 거리. 주박(Stabling)은 심야 타절 가능 역을 의미합니다.",
                 clTitle: "열차 등급 설정", clAdd: "+ 등급 추가",
@@ -158,7 +158,7 @@
 
         let appState = {
             globals: {
-                opEnd: '25:30', 
+                opEnd: '01:30', 
                 mRhStart: '07:00', mRhEnd: '09:00',
                 eRhStart: '17:30', eRhEnd: '20:00'
             },
@@ -177,8 +177,8 @@
                 { id: 'st12', name: '공항 2터미널 (Airport T2)', dist: 0, hasDepot: true }
             ],
             classes: [
-                { id: 'cl1', name: '완행 (Local)', color: '#64748b', vmax: 80, accel: 3.0, decel: 3.5, dwell: 30, first: '05:00', last: '24:00', rh: 6, nh: 12, stops: {} },
-                { id: 'cl2', name: '급행 (Express)', color: '#dc2626', vmax: 110, accel: 2.5, decel: 3.0, dwell: 45, first: '06:00', last: '23:00', rh: 15, nh: 30, stops: {} },
+                { id: 'cl1', name: '완행 (Local)', color: '#64748b', vmax: 80, accel: 3.0, decel: 3.5, dwell: 30, first: '05:00', last: '00:30', rh: 6, nh: 12, stops: {} },
+                { id: 'cl2', name: '급행 (Express)', color: '#dc2626', vmax: 110, accel: 2.5, decel: 3.0, dwell: 45, first: '06:00', last: '23:30', rh: 15, nh: 30, stops: {} },
                 { id: 'cl3', name: '선택정차 (Skip-Stop)', color: '#16a34a', vmax: 90, accel: 3.0, decel: 3.5, dwell: 30, first: '06:30', last: '22:30', rh: 10, nh: 20, stops: {} }
             ]
         };
@@ -330,7 +330,7 @@
             const newId = genId();
             let stops = {};
             appState.stations.forEach(s => stops[s.id] = true);
-            appState.classes.push({ id: newId, name: 'New Class', color: '#000000', vmax: 90, accel: 3.0, decel: 3.0, dwell: 30, first: '06:00', last: '22:00', rh: 10, nh: 20, stops: stops });
+            appState.classes.push({ id: newId, name: 'New Class', color: '#000000', vmax: 90, accel: 3.0, decel: 3.0, dwell: 30, first: '06:00', last: '00:00', rh: 10, nh: 20, stops: stops });
             renderClassesList();
             renderStationsTable();
         }
@@ -345,6 +345,7 @@
         }
 
         function parseTimeMins(timeStr) {
+            if (!timeStr) return 0;
             let [h, m] = timeStr.split(':').map(Number);
             return h * 60 + m;
         }
@@ -406,7 +407,12 @@
         function runSimulation() {
             const stations = appState.stations;
             const classes = appState.classes;
-            const opEndMins = parseTimeMins(appState.globals.opEnd);
+            let opEndMins = parseTimeMins(appState.globals.opEnd);
+
+            // Fix for past-midnight operating end time (e.g., 01:30 becomes next day)
+            if (opEndMins < 12 * 60) {
+                opEndMins += 24 * 60;
+            }
 
             let currentDist = 0;
             const stData = stations.map(s => {
@@ -426,8 +432,13 @@
                     const dwell = cClass.dwell / 60; // to mins
 
                     const firstMins = parseTimeMins(cClass.first);
-                    const lastMins = parseTimeMins(cClass.last);
+                    let lastMins = parseTimeMins(cClass.last);
                     
+                    // Fix for past-midnight last train (e.g., first 05:00, last 00:30)
+                    if (lastMins < firstMins || lastMins < 4 * 60) {
+                        lastMins += 24 * 60;
+                    }
+
                     let deps = [];
                     // offset start for up direction to stagger trains
                     let t = firstMins + (direction === 'up' ? (isRH(firstMins)?cClass.rh/2:cClass.nh/2) : 0);

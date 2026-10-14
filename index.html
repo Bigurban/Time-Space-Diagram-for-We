@@ -3,605 +3,581 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>고급 철도 운행 다이아그램 시뮬레이터</title>
+    <title>Advanced Railway Diagram Simulator</title>
+    <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.plot.ly/plotly-2.27.0.min.js"></script>
     <style>
-        :root {
-            --bg-color: #f3f4f6;
-            --panel-bg: #ffffff;
-            --text-main: #1f2937;
-            --text-muted: #6b7280;
-            --primary: #2563eb;
-            --primary-hover: #1d4ed8;
-            --border: #e5e7eb;
-            
-            /* 열차 등급별 색상 */
-            --color-local: #94a3b8;
-            --color-express: #ef4444;
-            --color-skipA: #10b981;
-            --color-skipB: #f59e0b;
-            --color-near: #8b5cf6;
-            --color-far: #0ea5e9;
-        }
-
-        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { font-family: 'Inter', 'Pretendard', sans-serif; overflow: hidden; }
+        .custom-scrollbar::-webkit-scrollbar { height: 6px; width: 6px; }
+        .custom-scrollbar::-webkit-scrollbar-track { background: #f1f5f9; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 3px; }
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
         
-        body {
-            font-family: 'Pretendard', 'Malgun Gothic', sans-serif;
-            background-color: var(--bg-color);
-            color: var(--text-main);
-            display: flex;
-            height: 100vh;
-            overflow: hidden;
-        }
-
-        /* 사이드바 스타일링 */
-        #sidebar {
-            width: 360px;
-            background-color: var(--panel-bg);
-            border-right: 1px solid var(--border);
-            padding: 20px;
-            overflow-y: auto;
-            display: flex;
-            flex-direction: column;
-            gap: 20px;
-            box-shadow: 2px 0 10px rgba(0,0,0,0.05);
-            z-index: 10;
-        }
-
-        h1 { font-size: 1.25rem; font-weight: 800; color: var(--primary); text-align: center; margin-bottom: 10px; }
-        h2 { font-size: 1rem; font-weight: 700; padding-bottom: 5px; border-bottom: 2px solid var(--border); color: var(--text-main); margin-bottom: 15px;}
-
-        .section { background: #f9fafb; padding: 15px; border-radius: 8px; border: 1px solid var(--border); }
-        
-        .input-group { margin-bottom: 12px; }
-        .input-group:last-child { margin-bottom: 0; }
-        .input-group label { display: block; font-size: 0.85rem; font-weight: 600; color: var(--text-muted); margin-bottom: 4px; }
-        .input-row { display: flex; gap: 10px; }
-        .input-row .input-group { flex: 1; }
-        
-        input, select {
+        .tab-btn.active { border-bottom: 2px solid #3b82f6; color: #2563eb; font-weight: 600; }
+        input[type="number"], input[type="time"], input[type="text"], select {
+            border: 1px solid #e2e8f0; border-radius: 0.375rem; padding: 0.25rem 0.5rem; outline: none; transition: border-color 0.2s;
             width: 100%;
-            padding: 8px 10px;
-            border: 1px solid var(--border);
-            border-radius: 6px;
-            font-size: 0.9rem;
-            outline: none;
-            transition: border 0.2s;
         }
-        input:focus, select:focus { border-color: var(--primary); }
-
-        /* 메인 콘텐츠 (그래프 및 통계) */
-        #main-content {
-            flex-grow: 1;
-            display: flex;
-            flex-direction: column;
-            padding: 20px;
-            gap: 20px;
-            overflow-y: auto;
-        }
-
-        .stats-container {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-            gap: 15px;
-        }
-
-        .stat-card {
-            background-color: var(--panel-bg);
-            padding: 15px 20px;
-            border-radius: 10px;
-            border: 1px solid var(--border);
-            box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05);
-            display: flex;
-            flex-direction: column;
-            gap: 5px;
-        }
-
-        .stat-card .label { font-size: 0.85rem; color: var(--text-muted); font-weight: 600; }
-        .stat-card .value { font-size: 1.5rem; font-weight: 800; color: var(--primary); }
-
-        #chart-container {
-            flex-grow: 1;
-            background-color: var(--panel-bg);
-            border-radius: 10px;
-            border: 1px solid var(--border);
-            box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05);
-            padding: 10px;
-            min-height: 500px;
-        }
+        input:focus, select:focus { border-color: #3b82f6; box-shadow: 0 0 0 1px #3b82f6; }
         
-        /* 범례 스타일 */
-        .legend-box { display: flex; gap: 15px; flex-wrap: wrap; margin-bottom: 10px; font-size: 0.85rem; font-weight: 600;}
-        .legend-item { display: flex; align-items: center; gap: 5px; }
-        .legend-color { width: 16px; height: 4px; border-radius: 2px; }
+        table { border-collapse: separate; border-spacing: 0; width: 100%; }
+        th, td { border-bottom: 1px solid #e2e8f0; border-right: 1px solid #e2e8f0; padding: 6px 8px; text-align: center; white-space: nowrap; }
+        th { background-color: #f8fafc; font-weight: 600; font-size: 0.8rem; color: #475569; position: sticky; top: 0; z-index: 10; }
+        th:first-child, td:first-child { border-left: 1px solid #e2e8f0; }
+        tr:hover td { background-color: #f1f5f9; }
+        td input[type="checkbox"] { width: 1.1rem; height: 1.1rem; accent-color: #3b82f6; cursor: pointer; }
     </style>
 </head>
-<body>
+<body class="bg-gray-100 h-screen flex flex-col text-sm">
 
-    <aside id="sidebar">
-        <h1>🚆 다이아그램 시뮬레이터 PRO</h1>
-        
-        <div class="section">
-            <h2>운행 패턴 설정</h2>
-            <div class="input-group">
-                <select id="patternSelect">
-                    <option value="all-stop">평행 (All-Stop, 전역정차)</option>
-                    <option value="express">완급결합 (Local / Express)</option>
-                    <option value="skip-stop">선택정차 (Skip-Stop, A/B 교대)</option>
-                    <option value="zonal">지역분리 (Zonal, 원근분리)</option>
-                </select>
-            </div>
+    <header class="bg-slate-900 text-white p-3 shadow-md flex justify-between items-center shrink-0">
+        <h1 class="text-lg font-bold flex items-center gap-2" id="ui-title">
+            🚆 Advanced Railway Simulator
+        </h1>
+        <div class="flex items-center gap-4">
+            <select id="langSelect" class="bg-slate-800 text-white border-slate-700 w-auto" onchange="changeLang(this.value)">
+                <option value="ko">한국어</option>
+                <option value="en">English</option>
+                <option value="ja">日本語</option>
+            </select>
+            <button onclick="runSimulation()" class="bg-blue-600 hover:bg-blue-500 text-white px-5 py-1.5 rounded font-semibold shadow transition-colors" id="ui-run-btn">
+                ▶ Run Simulation
+            </button>
         </div>
+    </header>
 
-        <div class="section">
-            <h2>인프라 및 차량 제원</h2>
-            <div class="input-row">
-                <div class="input-group">
-                    <label>노선 길이 (km)</label>
-                    <input type="number" id="distance" value="30" min="5" step="1">
-                </div>
-                <div class="input-group">
-                    <label>역 개수</label>
-                    <input type="number" id="stations" value="21" min="5" step="1">
-                </div>
+    <div class="flex flex-1 overflow-hidden flex-col md:flex-row">
+        <!-- Left Panel: Configurations -->
+        <div class="w-full md:w-2/5 flex flex-col bg-white border-r border-gray-200 z-10 shadow-lg h-1/2 md:h-full">
+            <!-- Tabs -->
+            <div class="flex border-b border-gray-200 shrink-0">
+                <button class="tab-btn active flex-1 py-2 text-gray-600 hover:bg-gray-50" onclick="switchTab('stations')" id="tab-title-stations">Stations</button>
+                <button class="tab-btn flex-1 py-2 text-gray-600 hover:bg-gray-50" onclick="switchTab('classes')" id="tab-title-classes">Train Classes</button>
+                <button class="tab-btn flex-1 py-2 text-gray-600 hover:bg-gray-50" onclick="switchTab('globals')" id="tab-title-globals">Settings</button>
             </div>
-            <div class="input-row">
-                <div class="input-group">
-                    <label>최고 속도 (km/h)</label>
-                    <input type="number" id="maxSpeed" value="100" min="30" step="5">
-                </div>
-                <div class="input-group">
-                    <label>정차 시간 (초)</label>
-                    <input type="number" id="dwellTime" value="30" min="10" step="5">
-                </div>
-            </div>
-            <div class="input-row">
-                <div class="input-group">
-                    <label>가속도 (km/h/s)</label>
-                    <input type="number" id="accel" value="3.0" min="1.0" step="0.1">
-                </div>
-                <div class="input-group">
-                    <label>감속도 (km/h/s)</label>
-                    <input type="number" id="decel" value="3.5" min="1.0" step="0.1">
-                </div>
-            </div>
-        </div>
 
-        <div class="section">
-            <h2>시간표 및 배차간격</h2>
-            <div class="input-row">
-                <div class="input-group">
-                    <label>첫차 시각</label>
-                    <input type="time" id="firstTrain" value="05:00">
+            <div class="flex-1 overflow-y-auto p-4 custom-scrollbar relative">
+                
+                <!-- STATIONS TAB -->
+                <div id="tab-stations" class="tab-content block h-full flex flex-col">
+                    <div class="flex justify-between items-center mb-2 shrink-0">
+                        <h2 class="font-bold text-gray-700" id="ui-st-title">Route & Stations</h2>
+                        <button onclick="addStation()" class="text-xs bg-slate-100 border border-slate-300 px-2 py-1 rounded hover:bg-slate-200" id="ui-st-add">+ Add</button>
+                    </div>
+                    <div class="flex-1 overflow-auto border border-gray-200 rounded custom-scrollbar">
+                        <table id="stationsTable">
+                            <!-- Populated by JS -->
+                        </table>
+                    </div>
+                    <p class="text-xs text-gray-500 mt-2 shrink-0" id="ui-st-desc">* Dist: distance to NEXT station. Stabling: late-night termination.</p>
                 </div>
-                <div class="input-group">
-                    <label>막차 시각</label>
-                    <input type="time" id="lastTrain" value="23:30">
-                </div>
-            </div>
-            <div class="input-row">
-                <div class="input-group">
-                    <label>RH 배차 (분)</label>
-                    <input type="number" id="rhInterval" value="4.5" min="1" step="0.5">
-                </div>
-                <div class="input-group">
-                    <label>NH 배차 (분)</label>
-                    <input type="number" id="nhInterval" value="8.0" min="1" step="0.5">
-                </div>
-            </div>
-            <div class="input-row">
-                <div class="input-group">
-                    <label>아침 RH 시작~종료</label>
-                    <div style="display:flex; gap:5px;">
-                        <input type="time" id="mRhStart" value="07:00">
-                        <input type="time" id="mRhEnd" value="09:00">
+
+                <!-- CLASSES TAB -->
+                <div id="tab-classes" class="tab-content hidden h-full flex flex-col">
+                    <div class="flex justify-between items-center mb-2 shrink-0">
+                        <h2 class="font-bold text-gray-700" id="ui-cl-title">Train Classes</h2>
+                        <button onclick="addClass()" class="text-xs bg-slate-100 border border-slate-300 px-2 py-1 rounded hover:bg-slate-200" id="ui-cl-add">+ Add Class</button>
+                    </div>
+                    <div id="classesContainer" class="flex-1 overflow-y-auto custom-scrollbar flex flex-col gap-3">
+                        <!-- Populated by JS -->
                     </div>
                 </div>
-            </div>
-            <div class="input-row">
-                <div class="input-group">
-                    <label>저녁 RH 시작~종료</label>
-                    <div style="display:flex; gap:5px;">
-                        <input type="time" id="eRhStart" value="18:00">
-                        <input type="time" id="eRhEnd" value="20:00">
+
+                <!-- GLOBALS TAB -->
+                <div id="tab-globals" class="tab-content hidden h-full">
+                    <h2 class="font-bold text-gray-700 mb-4" id="ui-gb-title">Global Operations</h2>
+                    
+                    <div class="bg-gray-50 p-4 border border-gray-200 rounded-lg flex flex-col gap-4">
+                        <div>
+                            <label class="block text-xs font-semibold text-gray-600 mb-1" id="ui-gb-end">Operating End Time (Cutoff)</label>
+                            <input type="time" id="opEndTime" class="w-1/2">
+                            <p class="text-xs text-red-500 mt-1" id="ui-gb-end-desc">Trains exceeding this terminate early at depots.</p>
+                        </div>
+                        <hr class="border-gray-200">
+                        <div>
+                            <h3 class="text-xs font-bold text-gray-700 mb-2" id="ui-gb-mrh">Morning Rush Hour (RH)</h3>
+                            <div class="flex gap-2">
+                                <input type="time" id="mRhStart"> <span class="self-center text-xs">~</span> <input type="time" id="mRhEnd">
+                            </div>
+                        </div>
+                        <div>
+                            <h3 class="text-xs font-bold text-gray-700 mb-2" id="ui-gb-erh">Evening Rush Hour (RH)</h3>
+                            <div class="flex gap-2">
+                                <input type="time" id="eRhStart"> <span class="self-center text-xs">~</span> <input type="time" id="eRhEnd">
+                            </div>
+                        </div>
                     </div>
                 </div>
-            </div>
-        </div>
-    </aside>
 
-    <main id="main-content">
-        <div class="stats-container">
-            <div class="stat-card">
-                <span class="label">총 운행 횟수 (편도 기준)</span>
-                <span class="value" id="stat-runs">0 회</span>
-            </div>
-            <div class="stat-card">
-                <span class="label">평균 역간 거리</span>
-                <span class="value" id="stat-dist">0 km</span>
-            </div>
-            <div class="stat-card">
-                <span class="label">완행 편도 소요시간</span>
-                <span class="value" id="stat-time">0 분</span>
-            </div>
-            <div class="stat-card">
-                <span class="label">표정속도 (완행)</span>
-                <span class="value" id="stat-speed">0 km/h</span>
             </div>
         </div>
 
-        <div id="chart-container">
-            <div class="legend-box" id="legendBox">
-                <!-- 동적 범례 생성 -->
+        <!-- Right Panel: Chart -->
+        <div class="w-full md:w-3/5 p-4 flex flex-col bg-gray-100 h-1/2 md:h-full">
+            <div id="chart-container" class="flex-1 bg-white rounded-lg shadow border border-gray-200 relative p-2">
+                <!-- Plotly injects here -->
             </div>
-            <div id="plot" style="width: 100%; height: calc(100% - 30px);"></div>
         </div>
-    </main>
+    </div>
 
     <script>
-        // --- 1. 유틸리티 함수 ---
-        // "HH:MM" 포맷을 자정 기준 분(Minute)으로 변환 (새벽 3시 이전은 다음날로 간주)
-        function timeToMinutes(timeStr) {
+        const i18n = {
+            ko: {
+                title: "🚆 고급 철도 운행 다이아그램 시뮬레이터", runBtn: "▶ 시뮬레이션 실행",
+                tabSt: "역 설정", tabCl: "열차 등급", tabGb: "전역 설정",
+                stTitle: "노선 및 역 목록", stAdd: "+ 역 추가", stDesc: "* 거리(Dist)는 다음 역까지의 거리. 주박(Stabling)은 심야 타절 가능 역을 의미합니다.",
+                clTitle: "열차 등급 설정", clAdd: "+ 등급 추가",
+                gbTitle: "전역 운행 설정", gbEnd: "영업 종료 시각 (막차 컷오프)", gbEndDesc: "이 시각을 초과하는 열차는 도달 가능한 주박역에서 조기 타절됩니다.",
+                gbMrh: "오전 출근 혼잡시간 (RH)", gbErh: "오후 퇴근 혼잡시간 (RH)",
+                thDel: "삭제", thName: "역명", thDist: "거리(km)", thStabling: "주박",
+                clMaxV: "최고속도", clAcc: "가속", clDec: "감속", clDwell: "정차", clFirst: "첫차", clLast: "막차", clRh: "RH간격", clNh: "NH간격"
+            },
+            en: {
+                title: "🚆 Advanced Railway Simulator", runBtn: "▶ Run Simulation",
+                tabSt: "Stations", tabCl: "Train Classes", tabGb: "Settings",
+                stTitle: "Route & Stations", stAdd: "+ Add Station", stDesc: "* Dist: distance to NEXT station. Stabling: late-night termination point.",
+                clTitle: "Train Classes", clAdd: "+ Add Class",
+                gbTitle: "Global Operations", gbEnd: "Operating End Time (Cutoff)", gbEndDesc: "Trains exceeding this time will terminate early at stabling stations.",
+                gbMrh: "Morning Rush Hour (RH)", gbErh: "Evening Rush Hour (RH)",
+                thDel: "Del", thName: "Station Name", thDist: "Dist(km)", thStabling: "Stabling",
+                clMaxV: "V.max", clAcc: "Accel", clDec: "Decel", clDwell: "Dwell", clFirst: "First", clLast: "Last", clRh: "RH(m)", clNh: "NH(m)"
+            },
+            ja: {
+                title: "🚆 高級鉄道ダイヤシミュレーター", runBtn: "▶ 実行",
+                tabSt: "駅設定", tabCl: "列車種別", tabGb: "全般設定",
+                stTitle: "路線・駅一覧", stAdd: "+ 駅追加", stDesc: "* 距離(Dist)は次駅まで。滞泊(Stabling)は深夜の打ち切り可能駅です。",
+                clTitle: "列車種別設定", clAdd: "+ 種別追加",
+                gbTitle: "全般運行設定", gbEnd: "営業終了時刻（終電カットオフ）", gbEndDesc: "この時刻を超える列車は、到達可能な滞泊駅で打ち切られます。",
+                gbMrh: "朝ラッシュ (RH)", gbErh: "夕ラッシュ (RH)",
+                thDel: "削除", thName: "駅名", thDist: "距離(km)", thStabling: "滞泊",
+                clMaxV: "最高速度", clAcc: "加速度", clDec: "減速度", clDwell: "停車", clFirst: "始発", clLast: "終発", clRh: "RH間隔", clNh: "NH間隔"
+            }
+        };
+
+        let currentLang = 'ko';
+
+        let appState = {
+            globals: {
+                opEnd: '25:30', 
+                mRhStart: '07:00', mRhEnd: '09:00',
+                eRhStart: '17:30', eRhEnd: '20:00'
+            },
+            stations: [
+                { id: 'st1', name: '중앙 (Central)', dist: 3.5, hasDepot: true },
+                { id: 'st2', name: '시청 (City Hall)', dist: 2.1, hasDepot: false },
+                { id: 'st3', name: '상업지구 (Business)', dist: 2.8, hasDepot: false },
+                { id: 'st4', name: '대학 (University)', dist: 4.2, hasDepot: false },
+                { id: 'st5', name: '종합운동장 (Stadium)', dist: 5.0, hasDepot: true },
+                { id: 'st6', name: '테크노파크 (Tech Park)', dist: 3.2, hasDepot: false },
+                { id: 'st7', name: '신시가지 (New Town)', dist: 2.5, hasDepot: false },
+                { id: 'st8', name: '강변 (River View)', dist: 4.0, hasDepot: true },
+                { id: 'st9', name: '고지대 (Highlands)', dist: 3.8, hasDepot: false },
+                { id: 'st10', name: '분기 (Junction)', dist: 2.5, hasDepot: false },
+                { id: 'st11', name: '공항 1터미널 (Airport T1)', dist: 2.0, hasDepot: false },
+                { id: 'st12', name: '공항 2터미널 (Airport T2)', dist: 0, hasDepot: true }
+            ],
+            classes: [
+                { id: 'cl1', name: '완행 (Local)', color: '#64748b', vmax: 80, accel: 3.0, decel: 3.5, dwell: 30, first: '05:00', last: '24:00', rh: 6, nh: 12, stops: {} },
+                { id: 'cl2', name: '급행 (Express)', color: '#dc2626', vmax: 110, accel: 2.5, decel: 3.0, dwell: 45, first: '06:00', last: '23:00', rh: 15, nh: 30, stops: {} },
+                { id: 'cl3', name: '선택정차 (Skip-Stop)', color: '#16a34a', vmax: 90, accel: 3.0, decel: 3.5, dwell: 30, first: '06:30', last: '22:30', rh: 10, nh: 20, stops: {} }
+            ]
+        };
+
+        // Initialize stops based on predefined rules
+        appState.stations.forEach(s => {
+            appState.classes[0].stops[s.id] = true; 
+            appState.classes[1].stops[s.id] = ['st1', 'st5', 'st8', 'st12'].includes(s.id);
+            appState.classes[2].stops[s.id] = ['st1', 'st3', 'st4', 'st7', 'st9', 'st11', 'st12'].includes(s.id);
+        });
+
+        const genId = () => Math.random().toString(36).substr(2, 9);
+
+        function t(key) { return i18n[currentLang][key]; }
+
+        function applyI18n() {
+            document.getElementById('ui-title').innerText = t('title');
+            document.getElementById('ui-run-btn').innerText = t('runBtn');
+            document.getElementById('tab-title-stations').innerText = t('tabSt');
+            document.getElementById('tab-title-classes').innerText = t('tabCl');
+            document.getElementById('tab-title-globals').innerText = t('tabGb');
+            
+            document.getElementById('ui-st-title').innerText = t('stTitle');
+            document.getElementById('ui-st-add').innerText = t('stAdd');
+            document.getElementById('ui-st-desc').innerText = t('stDesc');
+            
+            document.getElementById('ui-cl-title').innerText = t('clTitle');
+            document.getElementById('ui-cl-add').innerText = t('clAdd');
+            
+            document.getElementById('ui-gb-title').innerText = t('gbTitle');
+            document.getElementById('ui-gb-end').innerText = t('gbEnd');
+            document.getElementById('ui-gb-end-desc').innerText = t('gbEndDesc');
+            document.getElementById('ui-gb-mrh').innerText = t('gbMrh');
+            document.getElementById('ui-gb-erh').innerText = t('gbErh');
+
+            renderStationsTable();
+            renderClassesList();
+        }
+
+        function changeLang(lang) {
+            currentLang = lang;
+            applyI18n();
+            runSimulation();
+        }
+
+        function switchTab(tabId) {
+            document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+            document.querySelectorAll('.tab-content').forEach(c => c.classList.add('hidden'));
+            event.target.classList.add('active');
+            document.getElementById('tab-' + tabId).classList.remove('hidden');
+        }
+
+        function renderStationsTable() {
+            const table = document.getElementById('stationsTable');
+            let html = `<thead><tr>
+                <th class="w-8">${t('thDel')}</th>
+                <th>${t('thName')}</th>
+                <th title="Distance to Next Station">${t('thDist')}</th>
+                <th title="Depot/Stabling">${t('thStabling')}</th>`;
+            appState.classes.forEach(c => {
+                html += `<th style="color:${c.color}">${c.name}</th>`;
+            });
+            html += `</tr></thead><tbody>`;
+
+            appState.stations.forEach((s, idx) => {
+                const isLast = idx === appState.stations.length - 1;
+                html += `<tr>
+                    <td><button onclick="removeStation('${s.id}')" class="text-red-500 font-bold hover:text-red-700">×</button></td>
+                    <td><input type="text" value="${s.name}" onchange="updateStation('${s.id}', 'name', this.value)" class="text-xs"></td>
+                    <td class="w-20"><input type="number" step="0.1" value="${s.dist}" onchange="updateStation('${s.id}', 'dist', this.value)" ${isLast ? 'disabled class="bg-gray-100"' : ''}></td>
+                    <td><input type="checkbox" ${s.hasDepot ? 'checked' : ''} onchange="updateStation('${s.id}', 'hasDepot', this.checked)"></td>`;
+                
+                appState.classes.forEach(c => {
+                    const isTerminus = idx === 0 || isLast;
+                    const disabled = isTerminus ? 'disabled' : ''; // Terminals must always be checked to prevent logic breakage
+                    html += `<td><input type="checkbox" ${c.stops[s.id] ? 'checked' : ''} ${disabled} onchange="updateStop('${c.id}', '${s.id}', this.checked)"></td>`;
+                });
+                html += `</tr>`;
+            });
+            html += `</tbody>`;
+            table.innerHTML = html;
+        }
+
+        function renderClassesList() {
+            const container = document.getElementById('classesContainer');
+            container.innerHTML = '';
+            appState.classes.forEach(c => {
+                const card = document.createElement('div');
+                card.className = 'border border-gray-200 rounded p-3 bg-gray-50 flex flex-col gap-2 relative shadow-sm';
+                card.style.borderLeft = `4px solid ${c.color}`;
+                card.innerHTML = `
+                    <button onclick="removeClass('${c.id}')" class="absolute top-2 right-2 text-red-500 hover:text-red-700 font-bold">×</button>
+                    <div class="flex gap-2 items-center">
+                        <input type="color" value="${c.color}" onchange="updateClass('${c.id}', 'color', this.value)" class="w-8 h-8 cursor-pointer p-0 border-0">
+                        <input type="text" value="${c.name}" onchange="updateClass('${c.id}', 'name', this.value)" class="font-bold text-sm w-2/3">
+                    </div>
+                    <div class="grid grid-cols-2 md:grid-cols-4 gap-2 text-xs">
+                        <div><label class="text-gray-500">${t('clMaxV')}</label><input type="number" value="${c.vmax}" onchange="updateClass('${c.id}', 'vmax', this.value)"></div>
+                        <div><label class="text-gray-500">${t('clAcc')}</label><input type="number" step="0.1" value="${c.accel}" onchange="updateClass('${c.id}', 'accel', this.value)"></div>
+                        <div><label class="text-gray-500">${t('clDec')}</label><input type="number" step="0.1" value="${c.decel}" onchange="updateClass('${c.id}', 'decel', this.value)"></div>
+                        <div><label class="text-gray-500">${t('clDwell')}(s)</label><input type="number" value="${c.dwell}" onchange="updateClass('${c.id}', 'dwell', this.value)"></div>
+                        <div><label class="text-gray-500">${t('clFirst')}</label><input type="time" value="${c.first}" onchange="updateClass('${c.id}', 'first', this.value)"></div>
+                        <div><label class="text-gray-500">${t('clLast')}</label><input type="time" value="${c.last}" onchange="updateClass('${c.id}', 'last', this.value)"></div>
+                        <div><label class="text-gray-500">${t('clRh')}</label><input type="number" value="${c.rh}" onchange="updateClass('${c.id}', 'rh', this.value)"></div>
+                        <div><label class="text-gray-500">${t('clNh')}</label><input type="number" value="${c.nh}" onchange="updateClass('${c.id}', 'nh', this.value)"></div>
+                    </div>
+                `;
+                container.appendChild(card);
+            });
+        }
+
+        function renderGlobals() {
+            Object.keys(appState.globals).forEach(k => {
+                const el = document.getElementById(k);
+                if(el) {
+                    el.value = appState.globals[k];
+                    el.onchange = (e) => appState.globals[k] = e.target.value;
+                }
+            });
+        }
+
+        function addStation() {
+            const newId = genId();
+            appState.stations.push({ id: newId, name: 'New Station', dist: 2.0, hasDepot: false });
+            appState.classes.forEach(c => c.stops[newId] = true);
+            renderStationsTable();
+        }
+        function removeStation(id) {
+            if(appState.stations.length <= 2) {
+                console.warn("Minimum 2 stations required.");
+                return;
+            }
+            appState.stations = appState.stations.filter(s => s.id !== id);
+            const fId = appState.stations[0].id;
+            const lId = appState.stations[appState.stations.length-1].id;
+            appState.classes.forEach(c => { c.stops[fId] = true; c.stops[lId] = true; });
+            renderStationsTable();
+        }
+        function updateStation(id, field, value) {
+            const st = appState.stations.find(s => s.id === id);
+            st[field] = field === 'hasDepot' ? value : (field === 'dist' ? parseFloat(value) : value);
+            if(field === 'dist') renderStationsTable();
+        }
+        function updateStop(classId, stId, checked) {
+            appState.classes.find(c => c.id === classId).stops[stId] = checked;
+        }
+
+        function addClass() {
+            const newId = genId();
+            let stops = {};
+            appState.stations.forEach(s => stops[s.id] = true);
+            appState.classes.push({ id: newId, name: 'New Class', color: '#000000', vmax: 90, accel: 3.0, decel: 3.0, dwell: 30, first: '06:00', last: '22:00', rh: 10, nh: 20, stops: stops });
+            renderClassesList();
+            renderStationsTable();
+        }
+        function removeClass(id) {
+            appState.classes = appState.classes.filter(c => c.id !== id);
+            renderClassesList();
+            renderStationsTable();
+        }
+        function updateClass(id, field, value) {
+            const cl = appState.classes.find(c => c.id === id);
+            cl[field] = ['color', 'name', 'first', 'last'].includes(field) ? value : parseFloat(value);
+        }
+
+        function parseTimeMins(timeStr) {
             let [h, m] = timeStr.split(':').map(Number);
-            if (h <= 3) h += 24; 
             return h * 60 + m;
         }
-
-        // 특정 분(Minute)이 RH(혼잡 시간대)에 속하는지 판별
-        function isRH(mins, rhConfig) {
-            return (mins >= rhConfig.mStart && mins <= rhConfig.mEnd) || 
-                   (mins >= rhConfig.eStart && mins <= rhConfig.eEnd);
+        function minsToDate(mins) {
+            const d = new Date(2000, 0, 1, 0, 0, 0);
+            d.setMinutes(mins);
+            return d;
+        }
+        function isRH(mins) {
+            let hm = mins % (24 * 60);
+            let ms = parseTimeMins(appState.globals.mRhStart), me = parseTimeMins(appState.globals.mRhEnd);
+            let es = parseTimeMins(appState.globals.eRhStart), ee = parseTimeMins(appState.globals.eRhEnd);
+            return (hm >= ms && hm <= me) || (hm >= es && hm <= ee);
         }
 
-        // 분(Minute)을 Plotly X축에 사용할 임의의 Date 객체로 변환
-        // 연월일은 고정하고 시/분만 사용.
-        function minutesToDate(mins) {
-            const date = new Date(2000, 0, 1, 0, 0, 0);
-            date.setMinutes(mins);
-            return date;
-        }
+        // Calculates physical time required to traverse a segment of dist_m starting and ending at 0 speed.
+        function solveSegment(dist_m, vmax_ms, accel_ms2, decel_ms2) {
+            const t_a = vmax_ms / accel_ms2;
+            const t_d = vmax_ms / decel_ms2;
+            const d_a = 0.5 * accel_ms2 * Math.pow(t_a, 2);
+            const d_d = 0.5 * decel_ms2 * Math.pow(t_d, 2);
 
-        // --- 2. 물리 엔진 (주행 시간 계산) ---
-        /**
-         * 시작역에서 도착역까지의 주행 거리를 기반으로, 
-         * 중간에 통과하는 지점들의 도달 시간을 정확히 계산합니다.
-         */
-        function calculateRunTimes(dist_m, accel_ms2, decel_ms2, vmax_ms, intermediate_dists) {
-            const t_accel = vmax_ms / accel_ms2;
-            const t_decel = vmax_ms / decel_ms2;
-            const d_accel = 0.5 * accel_ms2 * Math.pow(t_accel, 2);
-            const d_decel = 0.5 * decel_ms2 * Math.pow(t_decel, 2);
-
-            let runTimes = [];
-            let isTriangle = (d_accel + d_decel >= dist_m);
-            
-            let v_peak = vmax_ms;
-            let actual_t_accel = t_accel;
-            let actual_d_accel = d_accel;
-            let total_time = 0;
-
-            if (isTriangle) {
-                // 역간 거리가 짧아 최고속도에 도달하지 못하는 삼각형 패턴
-                v_peak = Math.sqrt((2 * dist_m) / ((1/accel_ms2) + (1/decel_ms2)));
-                actual_t_accel = v_peak / accel_ms2;
-                actual_d_accel = 0.5 * accel_ms2 * Math.pow(actual_t_accel, 2);
-                total_time = (v_peak / accel_ms2) + (v_peak / decel_ms2);
+            if (d_a + d_d >= dist_m) {
+                // Triangle Profile (Never reaches max speed)
+                const v_peak = Math.sqrt((2 * dist_m) / ((1/accel_ms2) + (1/decel_ms2)));
+                const actual_t_a = v_peak / accel_ms2;
+                return {
+                    vmax: v_peak, a: accel_ms2, d: decel_ms2,
+                    t_a: actual_t_a, d_a: 0.5 * accel_ms2 * Math.pow(actual_t_a, 2),
+                    t_c: 0, d_c: 0,
+                    t_tot: (v_peak / accel_ms2) + (v_peak / decel_ms2)
+                };
             } else {
-                // 사다리꼴 패턴 (가속 -> 정속 -> 감속)
-                const d_cruise = dist_m - (d_accel + d_decel);
-                const t_cruise = d_cruise / vmax_ms;
-                total_time = t_accel + t_cruise + t_decel;
+                // Trapezoid Profile (Cruises at max speed)
+                const d_c = dist_m - d_a - d_d;
+                return {
+                    vmax: vmax_ms, a: accel_ms2, d: decel_ms2,
+                    t_a: t_a, d_a: d_a,
+                    t_c: d_c / vmax_ms, d_c: d_c,
+                    t_tot: t_a + (d_c / vmax_ms) + t_d
+                };
             }
-
-            // 각 중간 통과 지점(역)별 도달 시간 계산
-            for (let d of intermediate_dists) {
-                if (d === 0) {
-                    runTimes.push(0);
-                } else if (d >= dist_m - 0.1) { // 부동소수점 오차 보정
-                    runTimes.push(total_time);
-                } else {
-                    if (d <= actual_d_accel) {
-                        // 가속 구간 통과 중
-                        runTimes.push(Math.sqrt(2 * d / accel_ms2));
-                    } else if (d > dist_m - (0.5 * decel_ms2 * Math.pow(v_peak/decel_ms2, 2))) {
-                        // 감속 구간 통과 중
-                        const d_rem = dist_m - d;
-                        runTimes.push(total_time - Math.sqrt(2 * d_rem / decel_ms2));
-                    } else {
-                        // 정속 구간 통과 중 (삼각형 패턴에서는 여기 오지 않음)
-                        runTimes.push(actual_t_accel + (d - actual_d_accel) / vmax_ms);
-                    }
-                }
-            }
-            
-            return { totalTime: total_time, timesAtPoints: runTimes };
         }
 
-        // --- 3. 핵심 시뮬레이션 및 렌더링 로직 ---
-        function simulateAndRender() {
-            // 입력값 파싱
-            const dist_km = parseFloat(document.getElementById('distance').value);
-            const stations = parseInt(document.getElementById('stations').value);
-            const vmax_kmh = parseFloat(document.getElementById('maxSpeed').value);
-            const dwell_s = parseFloat(document.getElementById('dwellTime').value);
-            const accel_kmhs = parseFloat(document.getElementById('accel').value);
-            const decel_kmhs = parseFloat(document.getElementById('decel').value);
-            const pattern = document.getElementById('patternSelect').value;
+        // Calculates time taken to reach distance X within a given physics profile
+        function getTimeAtDist(prof, x) {
+            if (x <= 0) return 0;
+            if (x <= prof.d_a) {
+                return Math.sqrt(2 * x / prof.a); // Accelerating
+            } else if (x <= prof.d_a + prof.d_c) {
+                return prof.t_a + (x - prof.d_a) / prof.vmax; // Cruising
+            } else {
+                const rem_d = (prof.d_a + prof.d_c + (0.5 * prof.d * Math.pow((prof.vmax/prof.d), 2))) - x;
+                if (rem_d <= 0) return prof.t_tot;
+                return prof.t_tot - Math.sqrt(2 * rem_d / prof.d); // Decelerating
+            }
+        }
 
-            // 시간 관련 입력값
-            const firstMins = timeToMinutes(document.getElementById('firstTrain').value);
-            const lastMins = timeToMinutes(document.getElementById('lastTrain').value);
-            const rhInterval = parseFloat(document.getElementById('rhInterval').value);
-            const nhInterval = parseFloat(document.getElementById('nhInterval').value);
-            
-            const rhConfig = {
-                mStart: timeToMinutes(document.getElementById('mRhStart').value),
-                mEnd: timeToMinutes(document.getElementById('mRhEnd').value),
-                eStart: timeToMinutes(document.getElementById('eRhStart').value),
-                eEnd: timeToMinutes(document.getElementById('eRhEnd').value)
-            };
+        function runSimulation() {
+            const stations = appState.stations;
+            const classes = appState.classes;
+            const opEndMins = parseTimeMins(appState.globals.opEnd);
 
-            // 물리 단위 변환
-            const vmax_ms = vmax_kmh / 3.6;
-            const accel_ms2 = accel_kmhs / 3.6;
-            const decel_ms2 = decel_kmhs / 3.6;
-            const avg_dist_m = (dist_km * 1000) / (stations - 1);
+            let currentDist = 0;
+            const stData = stations.map(s => {
+                const data = { ...s, cumDist: currentDist };
+                currentDist += s.dist;
+                return data;
+            });
 
-            // 역 위치 정보 생성 [0, 1.5, 3.0, ...]
-            let stationPositions = [];
-            for(let i = 0; i < stations; i++) stationPositions.push(i * avg_dist_m);
-
-            // 다이아그램 라인 데이터를 담을 배열
             let traces = [];
-            let totalRuns = 0;
 
-            // -- 열차 스케줄 생성기 --
-            function generateDepartures(startMin, endMin) {
-                let deps = [];
-                let current = startMin;
-                while (current <= endMin) {
-                    deps.push(current);
-                    current += isRH(current, rhConfig) ? rhInterval : nhInterval;
-                }
-                return deps;
-            }
+            // Generator for Down and Up directions
+            function simulateDirection(direction) {
+                classes.forEach(cClass => {
+                    const vmax = cClass.vmax / 3.6;
+                    const accel = cClass.accel / 3.6;
+                    const decel = cClass.decel / 3.6;
+                    const dwell = cClass.dwell / 60; // to mins
 
-            const downboundDeps = generateDepartures(firstMins, lastMins);
-            // 상행은 하행과 교차되도록 첫차 시간에 기본 배차의 절반 오프셋 적용
-            const upboundStart = firstMins + (isRH(firstMins, rhConfig) ? rhInterval/2 : nhInterval/2);
-            const upboundDeps = generateDepartures(upboundStart, lastMins);
+                    const firstMins = parseTimeMins(cClass.first);
+                    const lastMins = parseTimeMins(cClass.last);
+                    
+                    let deps = [];
+                    // offset start for up direction to stagger trains
+                    let t = firstMins + (direction === 'up' ? (isRH(firstMins)?cClass.rh/2:cClass.nh/2) : 0);
+                    while (t <= lastMins) {
+                        deps.push(t);
+                        t += isRH(t) ? cClass.rh : cClass.nh;
+                    }
 
-            totalRuns = downboundDeps.length + upboundDeps.length;
+                    let routeStops = [];
+                    let stSequence = direction === 'down' ? stData : [...stData].reverse();
+                    
+                    stSequence.forEach((st, idx) => {
+                        routeStops.push({
+                            id: st.id,
+                            name: st.name,
+                            cumDist: st.cumDist,
+                            isStop: cClass.stops[st.id],
+                            hasDepot: st.hasDepot
+                        });
+                    });
 
-            // -- 정차 패턴 정의기 --
-            // trainIndex를 받아 각 역별 정차 여부(boolean array)와 시각적 속성을 반환
-            function getStopsAndStyle(trainIndex, direction) {
-                let stops = new Array(stations).fill(true);
-                let name = "완행";
-                let color = "var(--color-local)";
-
-                if (pattern === 'express') {
-                    if (trainIndex % 3 !== 0) { // 3대 중 1대 꼴로 급행 운행
-                        // 완행
-                    } else {
-                        // 급행: 4정거장마다 정차 (0, 4, 8...), 종점은 무조건 정차
-                        name = "급행";
-                        color = "var(--color-express)";
-                        for (let i = 1; i < stations - 1; i++) {
-                            if (i % 4 !== 0) stops[i] = false;
+                    // Merge skipped stations to find physical segments between actual stops
+                    let segments = []; 
+                    let lastStopIdx = 0;
+                    for (let i = 1; i < routeStops.length; i++) {
+                        if (routeStops[i].isStop) {
+                            let dist_m = Math.abs(routeStops[i].cumDist - routeStops[lastStopIdx].cumDist) * 1000;
+                            let prof = solveSegment(dist_m, vmax, accel, decel);
+                            segments.push({ startIdx: lastStopIdx, endIdx: i, profile: prof });
+                            lastStopIdx = i;
                         }
                     }
-                } else if (pattern === 'skip-stop') {
-                    // 메인역: 4정거장마다 (0, 4, 8...). 모두 정차
-                    const isMajor = (i) => i % 4 === 0 || i === stations - 1;
-                    if (trainIndex % 2 === 0) {
-                        name = "Skip-A"; color = "var(--color-skipA)";
-                        for (let i = 1; i < stations - 1; i++) {
-                            if (!isMajor(i) && i % 2 !== 1) stops[i] = false; // 홀수역 정차
-                        }
-                    } else {
-                        name = "Skip-B"; color = "var(--color-skipB)";
-                        for (let i = 1; i < stations - 1; i++) {
-                            if (!isMajor(i) && i % 2 !== 0) stops[i] = false; // 짝수역 정차
-                        }
-                    }
-                } else if (pattern === 'zonal') {
-                    const midIndex = Math.floor(stations / 2);
-                    if (trainIndex % 2 === 0) {
-                        name = "근거리"; color = "var(--color-near)";
-                        // 근거리: 0 ~ mid 까지만 운행하고 나머지 끊음 (하행/상행 방향에 맞춤)
-                        if (direction === 'down') {
-                            for (let i = midIndex + 1; i < stations; i++) stops[i] = null; // null은 운행 안함
-                        } else {
-                            for (let i = 0; i < midIndex; i++) stops[i] = null;
-                        }
-                    } else {
-                        name = "원거리"; color = "var(--color-far)";
-                        // 원거리: 근거리 구간은 무정차 통과, 원거리 구간은 전역 정차
-                        if (direction === 'down') {
-                            for (let i = 1; i < midIndex; i++) stops[i] = false;
-                        } else {
-                            for (let i = midIndex + 1; i < stations - 1; i++) stops[i] = false;
-                        }
-                    }
-                }
-                return { stops, name, color };
-            }
 
-            // 열차 시뮬레이터 (각 방향별 수행)
-            function simulateDirection(departures, direction) {
-                departures.forEach((depTime, tIndex) => {
-                    const profile = getStopsAndStyle(tIndex, direction);
-                    let { stops, name, color } = profile;
-                    
-                    let x_time = [];
-                    let y_dist = [];
-                    
-                    let currentMin = depTime;
-                    
-                    // 운행 시작점 찾기 (지역분리 패턴 처리용)
-                    let startIndex = direction === 'down' ? 0 : stations - 1;
-                    let endIndex = direction === 'down' ? stations - 1 : 0;
-                    let step = direction === 'down' ? 1 : -1;
+                    deps.forEach(depTime => {
+                        let schedule = []; 
+                        let currentMin = depTime;
+                        let segmentIdx = 0;
 
-                    // 첫 역이 운행 취소(null)된 경우, 운행 시작역을 뒤로/앞으로 미룸
-                    while (stops[startIndex] === null && startIndex !== endIndex) {
-                        startIndex += step;
-                    }
-                    
-                    // 현재 정차해 있는 역
-                    let lastStopIndex = startIndex;
-                    x_time.push(minutesToDate(currentMin));
-                    y_dist.push(stationPositions[lastStopIndex] / 1000);
+                        schedule.push({ idx: 0, st: routeStops[0], arr: currentMin, dep: currentMin });
 
-                    // 다음 정차역을 찾아가며 시뮬레이션
-                    let i = startIndex + step;
-                    let hasFinished = false;
-
-                    while (!hasFinished) {
-                        if (stops[i] === null || i === endIndex + step) {
-                            hasFinished = true;
-                            break;
-                        }
-
-                        if (stops[i] === true || i === endIndex) {
-                            // 다음 정차역을 찾았음. 
-                            // lastStopIndex ~ i 구간 사이의 통과역들을 계산.
-                            let distToRun = Math.abs(stationPositions[i] - stationPositions[lastStopIndex]);
+                        for (let i = 1; i < routeStops.length; i++) {
+                            let seg = segments[segmentIdx];
+                            let x_m = Math.abs(routeStops[i].cumDist - routeStops[seg.startIdx].cumDist) * 1000;
+                            let dt_sec = getTimeAtDist(seg.profile, x_m);
+                            let arrMin = schedule[seg.startIdx].dep + (dt_sec / 60);
                             
-                            // 통과역들과 도착역의 상대적 거리 배열 생성
-                            let intermediateDists = [];
-                            let k_start = Math.min(lastStopIndex, i);
-                            let k_end = Math.max(lastStopIndex, i);
-                            
-                            for (let k = k_start; k <= k_end; k++) {
-                                // 방향에 맞게 거리 계산 (현재 진행 구간 내의 거리)
-                                let d = Math.abs(stationPositions[k] - stationPositions[lastStopIndex]);
-                                intermediateDists.push(d);
+                            if (i === seg.endIdx) {
+                                // Real stop
+                                schedule.push({ idx: i, st: routeStops[i], arr: arrMin, dep: arrMin + dwell });
+                                segmentIdx++;
+                            } else {
+                                // Skip-stop pass
+                                schedule.push({ idx: i, st: routeStops[i], arr: arrMin, dep: arrMin });
                             }
-                            // 방향에 맞게 거리 정렬 (가까운 역부터)
-                            intermediateDists.sort((a,b) => a - b);
-                            
-                            // 물리 엔진 호출
-                            const result = calculateRunTimes(distToRun, accel_ms2, decel_ms2, vmax_ms, intermediateDists);
-                            
-                            // 결과를 x_time, y_dist 배열에 추가
-                            // k_start ~ k_end 를 방향에 맞게 다시 순회하며 점을 찍음
-                            let pointCount = 0;
-                            let k_iter = lastStopIndex;
-                            while(k_iter !== i) {
-                                k_iter += step;
-                                pointCount++;
-                                let passTimeMins = currentMin + (result.timesAtPoints[pointCount] / 60);
-                                x_time.push(minutesToDate(passTimeMins));
-                                y_dist.push(stationPositions[k_iter] / 1000);
-                            }
-                            
-                            currentMin += (result.totalTime / 60); // 주행시간 추가
-                            if (i !== endIndex) { // 종점이 아니면 정차시간 추가
-                                currentMin += (dwell_s / 60);
-                                // 정차 시간 동안의 가로 선(대기) 표현
-                                x_time.push(minutesToDate(currentMin));
-                                y_dist.push(stationPositions[i] / 1000);
-                            }
-                            
-                            lastStopIndex = i;
                         }
-                        i += step;
-                    }
 
-                    traces.push({
-                        x: x_time,
-                        y: y_dist,
-                        mode: 'lines',
-                        name: name,
-                        line: { color: color, width: 1.5, shape: 'linear' },
-                        hoverinfo: 'name+x+y',
-                        showlegend: false
+                        // Late Night Stabling Logic
+                        const finalArr = schedule[schedule.length - 1].arr;
+                        let isStabling = false;
+                        let validSchedule = schedule;
+
+                        if (finalArr > opEndMins) {
+                            isStabling = true;
+                            let terminateIdx = -1;
+                            // Traverse back to find a valid depot where the train actually stops and arrives before cutoff
+                            for (let i = schedule.length - 2; i >= 0; i--) {
+                                if (schedule[i].st.hasDepot && schedule[i].st.isStop && schedule[i].arr <= opEndMins) {
+                                    terminateIdx = i;
+                                    break;
+                                }
+                            }
+                            if (terminateIdx === -1) return; // Cancel train completely if it can't even reach the first depot
+                            validSchedule = schedule.slice(0, terminateIdx + 1);
+                        }
+
+                        let x_vals = [];
+                        let y_vals = [];
+
+                        validSchedule.forEach((point, pIdx) => {
+                            x_vals.push(minsToDate(point.arr));
+                            y_vals.push(point.st.cumDist);
+                            // Draw horizontal line for dwell time
+                            if (point.st.isStop && pIdx !== 0 && pIdx !== validSchedule.length - 1) {
+                                x_vals.push(minsToDate(point.dep));
+                                y_vals.push(point.st.cumDist);
+                            }
+                        });
+
+                        traces.push({
+                            x: x_vals,
+                            y: y_vals,
+                            mode: 'lines',
+                            name: cClass.name,
+                            line: {
+                                color: cClass.color,
+                                width: 1.5,
+                                dash: isStabling ? 'dashdot' : 'solid' // Dashed for early termination
+                            },
+                            hoverinfo: 'name+x+y',
+                            showlegend: false
+                        });
                     });
                 });
             }
 
-            simulateDirection(downboundDeps, 'down');
-            simulateDirection(upboundDeps, 'up');
+            simulateDirection('down');
+            simulateDirection('up');
 
-            // 통계 수치 업데이트 (완행 기준)
-            const resultLocal = calculateRunTimes(avg_dist_m, accel_ms2, decel_ms2, vmax_ms, [0, avg_dist_m]);
-            const onewayTimeS = (resultLocal.totalTime * (stations - 1)) + (dwell_s * (stations - 2));
-            const onewayTimeMin = onewayTimeS / 60;
-            const scheduledSpeed = dist_km / (onewayTimeMin / 60);
-
-            document.getElementById('stat-runs').innerText = `${totalRuns} 회`;
-            document.getElementById('stat-dist').innerText = `${(avg_dist_m / 1000).toFixed(2)} km`;
-            document.getElementById('stat-time').innerText = `${onewayTimeMin.toFixed(1)} 분`;
-            document.getElementById('stat-speed').innerText = `${scheduledSpeed.toFixed(1)} km/h`;
-
-            // Plotly 렌더링 설정
             const layout = {
-                margin: { l: 60, r: 20, t: 30, b: 40 },
-                xaxis: { 
-                    title: '시간',
+                margin: { l: 120, r: 30, t: 30, b: 50 },
+                xaxis: {
+                    title: 'Time',
                     type: 'date',
                     tickformat: '%H:%M',
-                    showgrid: true, 
-                    gridcolor: '#e5e7eb',
-                    hoverformat: '%H:%M'
-                },
-                yaxis: { 
-                    title: '거리 (km)', 
-                    autorange: 'reversed', // 철도 다이아그램 기본 (아래로 내려감)
                     showgrid: true,
-                    gridcolor: '#e5e7eb',
-                    tickvals: stationPositions.map(d => d/1000),
-                    ticktext: stationPositions.map((_, idx) => `역 ${idx+1}`),
+                    gridcolor: '#f1f5f9',
+                    hoverformat: '%H:%M',
+                },
+                yaxis: {
+                    title: '',
+                    autorange: 'reversed', 
+                    showgrid: true,
+                    gridcolor: '#e2e8f0',
+                    tickvals: stData.map(s => s.cumDist),
+                    ticktext: stData.map(s => s.name),
                     zeroline: false
                 },
                 plot_bgcolor: '#ffffff',
                 paper_bgcolor: '#ffffff',
-                hovermode: 'closest'
+                hovermode: 'closest',
+                shapes: [
+                    {
+                        type: 'line',
+                        x0: minsToDate(opEndMins).getTime(),
+                        x1: minsToDate(opEndMins).getTime(),
+                        y0: 0,
+                        y1: stData[stData.length-1].cumDist,
+                        line: { color: '#ef4444', width: 2, dash: 'dot' } // Red line for operating end
+                    }
+                ]
             };
 
-            Plotly.react('plot', traces, layout, {responsive: true});
-
-            // 범례 업데이트 (커스텀 HTML)
-            updateLegend(pattern);
+            Plotly.react('chart-container', traces, layout, { responsive: true });
         }
 
-        // 범례 HTML 생성기
-        function updateLegend(pattern) {
-            const box = document.getElementById('legendBox');
-            let html = '';
-            
-            const createItem = (color, text) => 
-                `<div class="legend-item"><div class="legend-color" style="background-color: ${color}"></div><span>${text}</span></div>`;
-
-            if(pattern === 'all-stop') {
-                html += createItem('var(--color-local)', '완행 (All-Stop)');
-            } else if(pattern === 'express') {
-                html += createItem('var(--color-local)', '완행');
-                html += createItem('var(--color-express)', '급행');
-            } else if(pattern === 'skip-stop') {
-                html += createItem('var(--color-skipA)', 'Skip-A (홀수역)');
-                html += createItem('var(--color-skipB)', 'Skip-B (짝수역)');
-            } else if(pattern === 'zonal') {
-                html += createItem('var(--color-near)', '근거리 완행');
-                html += createItem('var(--color-far)', '원거리 급행');
-            }
-            box.innerHTML = html;
-        }
-
-        // 이벤트 리스너 바인딩
-        document.querySelectorAll('input, select').forEach(el => {
-            el.addEventListener('change', simulateAndRender);
-            // number input의 경우 입력 중에도 반응
-            if(el.type === 'number') {
-                el.addEventListener('input', simulateAndRender);
-            }
-        });
-
-        // 초기 실행
-        simulateAndRender();
+        window.onload = () => {
+            applyI18n();
+            renderGlobals();
+            runSimulation();
+        };
     </script>
 </body>
 </html>

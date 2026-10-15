@@ -2,108 +2,154 @@
 <html lang="ko">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Advanced Railway Diagram Simulator</title>
+    <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Plotly.js -->
     <script src="https://cdn.plot.ly/plotly-2.27.0.min.js"></script>
     <style>
-        body { font-family: 'Inter', 'Pretendard', sans-serif; overflow: hidden; }
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+        
+        body { font-family: 'Inter', sans-serif; overflow: hidden; background-color: #f8fafc; }
+        
+        /* Custom Scrollbar for better UI */
         .custom-scrollbar::-webkit-scrollbar { height: 6px; width: 6px; }
-        .custom-scrollbar::-webkit-scrollbar-track { background: #f1f5f9; }
+        .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
         .custom-scrollbar::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 3px; }
         .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
         
-        .tab-btn.active { border-bottom: 2px solid #3b82f6; color: #2563eb; font-weight: 600; }
-        input[type="number"], input[type="time"], input[type="text"], select {
-            border: 1px solid #e2e8f0; border-radius: 0.375rem; padding: 0.25rem 0.5rem; outline: none; transition: border-color 0.2s;
-            width: 100%;
-        }
-        input:focus, select:focus { border-color: #3b82f6; box-shadow: 0 0 0 1px #3b82f6; }
+        /* Tab styling */
+        .tab-btn { transition: all 0.2s ease-in-out; border-bottom: 2px solid transparent; }
+        .tab-btn.active { border-bottom: 2px solid #3b82f6; color: #2563eb; font-weight: 600; background-color: #eff6ff; }
         
-        table { border-collapse: separate; border-spacing: 0; width: 100%; }
-        th, td { border-bottom: 1px solid #e2e8f0; border-right: 1px solid #e2e8f0; padding: 6px 8px; text-align: center; white-space: nowrap; }
-        th { background-color: #f8fafc; font-weight: 600; font-size: 0.8rem; color: #475569; position: sticky; top: 0; z-index: 10; }
+        /* Inputs styling */
+        input[type="number"], input[type="time"], input[type="text"], select {
+            border: 1px solid #cbd5e1; border-radius: 0.375rem; padding: 0.3rem 0.5rem; outline: none; transition: all 0.2s;
+            width: 100%; background: #fff; font-size: 0.875rem;
+        }
+        input:focus, select:focus { border-color: #3b82f6; box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.2); }
+        
+        /* Table styling */
+        table { border-collapse: separate; border-spacing: 0; width: 100%; min-width: max-content; }
+        th, td { border-bottom: 1px solid #e2e8f0; border-right: 1px solid #e2e8f0; padding: 8px 10px; text-align: center; white-space: nowrap; font-size: 0.875rem; }
+        th { background-color: #f1f5f9; font-weight: 600; color: #475569; position: sticky; top: 0; z-index: 10; box-shadow: 0 1px 0 #e2e8f0; }
         th:first-child, td:first-child { border-left: 1px solid #e2e8f0; }
-        tr:hover td { background-color: #f1f5f9; }
+        tr:hover td { background-color: #f8fafc; }
         td input[type="checkbox"] { width: 1.1rem; height: 1.1rem; accent-color: #3b82f6; cursor: pointer; }
+
+        /* Responsive Layout Adjustments */
+        #chart-container { width: 100%; height: 100%; }
+        
+        /* Color input hack for cross-browser styling */
+        input[type="color"] { -webkit-appearance: none; border: none; border-radius: 4px; padding: 0; cursor: pointer; }
+        input[type="color"]::-webkit-color-swatch-wrapper { padding: 0; }
+        input[type="color"]::-webkit-color-swatch { border: none; border-radius: 4px; box-shadow: 0 0 0 1px #cbd5e1 inset; }
+
+        /* Orientation-Aware Layout (Fix for Vertical/Portrait Monitors) */
+        .main-wrapper { flex-direction: column; }
+        .left-panel { width: 100%; height: 45vh; border-bottom: 1px solid #e2e8f0; border-right: none; }
+        .right-panel { width: 100%; height: 55vh; }
+        
+        @media (min-width: 900px) and (orientation: landscape) {
+            .main-wrapper { flex-direction: row; }
+            .left-panel { width: 460px; height: 100%; border-right: 1px solid #e2e8f0; border-bottom: none; }
+            .right-panel { flex: 1; height: 100%; }
+        }
     </style>
 </head>
-<body class="bg-gray-100 h-screen flex flex-col text-sm">
+<body class="flex flex-col h-screen text-slate-800">
 
-    <header class="bg-slate-900 text-white p-3 shadow-md flex justify-between items-center shrink-0">
-        <h1 class="text-lg font-bold flex items-center gap-2" id="ui-title">
+    <!-- Header -->
+    <header class="bg-slate-900 text-white p-3 shadow-md flex justify-between items-center shrink-0 z-20">
+        <h1 class="text-base font-bold flex items-center gap-2 truncate" id="ui-title">
             🚆 Advanced Railway Simulator
         </h1>
-        <div class="flex items-center gap-4">
-            <select id="langSelect" class="bg-slate-800 text-white border-slate-700 w-auto" onchange="changeLang(this.value)">
+        <div class="flex items-center gap-2 md:gap-4 shrink-0">
+            <select id="langSelect" class="bg-slate-800 text-white border border-slate-700 w-auto py-1 px-2 text-xs md:text-sm rounded hover:bg-slate-700 cursor-pointer" onchange="changeLang(this.value)">
                 <option value="ko">한국어</option>
                 <option value="en">English</option>
                 <option value="ja">日本語</option>
             </select>
-            <button onclick="runSimulation()" class="bg-blue-600 hover:bg-blue-500 text-white px-5 py-1.5 rounded font-semibold shadow transition-colors" id="ui-run-btn">
+            <button onclick="runSimulation()" class="bg-blue-600 hover:bg-blue-500 text-white px-3 md:px-5 py-1.5 rounded text-xs md:text-sm font-semibold shadow transition-colors truncate" id="ui-run-btn">
                 ▶ Run Simulation
             </button>
         </div>
     </header>
 
-    <div class="flex flex-1 overflow-hidden flex-col md:flex-row">
+    <!-- Main Workspace -->
+    <div class="main-wrapper flex flex-1 overflow-hidden">
+        
         <!-- Left Panel: Configurations -->
-        <div class="w-full md:w-2/5 flex flex-col bg-white border-r border-gray-200 z-10 shadow-lg h-1/2 md:h-full">
+        <div class="left-panel flex flex-col bg-white z-10 shadow-sm shrink-0">
             <!-- Tabs -->
-            <div class="flex border-b border-gray-200 shrink-0">
-                <button class="tab-btn active flex-1 py-2 text-gray-600 hover:bg-gray-50" onclick="switchTab('stations')" id="tab-title-stations">Stations</button>
-                <button class="tab-btn flex-1 py-2 text-gray-600 hover:bg-gray-50" onclick="switchTab('classes')" id="tab-title-classes">Train Classes</button>
-                <button class="tab-btn flex-1 py-2 text-gray-600 hover:bg-gray-50" onclick="switchTab('globals')" id="tab-title-globals">Settings</button>
+            <div class="flex border-b border-slate-200 shrink-0 bg-slate-50">
+                <button class="tab-btn active flex-1 py-2.5 text-slate-600 text-sm font-medium hover:bg-slate-100" onclick="switchTab('stations')" id="tab-title-stations">Stations</button>
+                <button class="tab-btn flex-1 py-2.5 text-slate-600 text-sm font-medium hover:bg-slate-100" onclick="switchTab('classes')" id="tab-title-classes">Classes</button>
+                <button class="tab-btn flex-1 py-2.5 text-slate-600 text-sm font-medium hover:bg-slate-100" onclick="switchTab('globals')" id="tab-title-globals">Settings</button>
             </div>
 
-            <div class="flex-1 overflow-y-auto p-4 custom-scrollbar relative">
+            <!-- Tab Contents Container -->
+            <div class="flex-1 overflow-y-auto p-3 md:p-4 custom-scrollbar bg-white relative">
                 
                 <!-- STATIONS TAB -->
                 <div id="tab-stations" class="tab-content block h-full flex flex-col">
-                    <div class="flex justify-between items-center mb-2 shrink-0">
-                        <h2 class="font-bold text-gray-700" id="ui-st-title">Route & Stations</h2>
-                        <button onclick="addStation()" class="text-xs bg-slate-100 border border-slate-300 px-2 py-1 rounded hover:bg-slate-200" id="ui-st-add">+ Add</button>
+                    <div class="flex justify-between items-center mb-3 shrink-0">
+                        <h2 class="font-bold text-slate-700" id="ui-st-title">Route & Stations</h2>
+                        <button onclick="addStation()" class="text-xs bg-slate-100 text-slate-700 border border-slate-300 px-3 py-1 rounded shadow-sm hover:bg-slate-200 transition-colors" id="ui-st-add">+ Add</button>
                     </div>
-                    <div class="flex-1 overflow-auto border border-gray-200 rounded custom-scrollbar">
+                    <!-- Responsive table wrapper -->
+                    <div class="flex-1 overflow-auto border border-slate-200 rounded-lg custom-scrollbar shadow-inner bg-slate-50">
                         <table id="stationsTable">
                             <!-- Populated by JS -->
                         </table>
                     </div>
-                    <p class="text-xs text-gray-500 mt-2 shrink-0" id="ui-st-desc">* Dist: distance to NEXT station. Stabling: late-night termination.</p>
+                    <p class="text-xs text-slate-500 mt-2 shrink-0 leading-tight bg-blue-50 p-2 rounded border border-blue-100" id="ui-st-desc">
+                        * Dist: Distance to the NEXT station.<br>* Stabling: Station supports late-night termination.
+                    </p>
                 </div>
 
                 <!-- CLASSES TAB -->
                 <div id="tab-classes" class="tab-content hidden h-full flex flex-col">
-                    <div class="flex justify-between items-center mb-2 shrink-0">
-                        <h2 class="font-bold text-gray-700" id="ui-cl-title">Train Classes</h2>
-                        <button onclick="addClass()" class="text-xs bg-slate-100 border border-slate-300 px-2 py-1 rounded hover:bg-slate-200" id="ui-cl-add">+ Add Class</button>
+                    <div class="flex justify-between items-center mb-3 shrink-0">
+                        <h2 class="font-bold text-slate-700" id="ui-cl-title">Train Classes</h2>
+                        <button onclick="addClass()" class="text-xs bg-slate-100 text-slate-700 border border-slate-300 px-3 py-1 rounded shadow-sm hover:bg-slate-200 transition-colors" id="ui-cl-add">+ Add Class</button>
                     </div>
-                    <div id="classesContainer" class="flex-1 overflow-y-auto custom-scrollbar flex flex-col gap-3">
+                    <div id="classesContainer" class="flex-1 overflow-y-auto custom-scrollbar flex flex-col gap-3 pb-4">
                         <!-- Populated by JS -->
                     </div>
                 </div>
 
                 <!-- GLOBALS TAB -->
                 <div id="tab-globals" class="tab-content hidden h-full">
-                    <h2 class="font-bold text-gray-700 mb-4" id="ui-gb-title">Global Operations</h2>
+                    <h2 class="font-bold text-slate-700 mb-4" id="ui-gb-title">Global Operations</h2>
                     
-                    <div class="bg-gray-50 p-4 border border-gray-200 rounded-lg flex flex-col gap-4">
+                    <div class="bg-slate-50 p-4 border border-slate-200 rounded-lg flex flex-col gap-5 shadow-sm">
+                        <!-- Cutoff Time -->
                         <div>
-                            <label class="block text-xs font-semibold text-gray-600 mb-1" id="ui-gb-end">Operating End Time (Cutoff)</label>
-                            <input type="time" id="opEndTime" class="w-1/2">
-                            <p class="text-xs text-red-500 mt-1" id="ui-gb-end-desc">Trains exceeding this terminate early at depots.</p>
+                            <label class="block text-sm font-bold text-slate-700 mb-1 flex items-center gap-2" id="ui-gb-end">
+                                <span class="w-2 h-2 rounded-full bg-red-500 inline-block"></span> 
+                                Operating End Time (Cutoff)
+                            </label>
+                            <input type="time" id="opEnd" class="w-full md:w-1/2 p-2" onchange="updateGlobal('opEnd', this.value)">
+                            <p class="text-xs text-red-600 mt-2 bg-red-50 p-2 rounded border border-red-100" id="ui-gb-end-desc">Trains exceeding this time will terminate early at the nearest stabling station.</p>
                         </div>
-                        <hr class="border-gray-200">
+                        <hr class="border-slate-200">
+                        <!-- RH times (Currently visual, could be tied to advanced logic later) -->
                         <div>
-                            <h3 class="text-xs font-bold text-gray-700 mb-2" id="ui-gb-mrh">Morning Rush Hour (RH)</h3>
-                            <div class="flex gap-2">
-                                <input type="time" id="mRhStart"> <span class="self-center text-xs">~</span> <input type="time" id="mRhEnd">
+                            <h3 class="text-sm font-bold text-slate-700 mb-2" id="ui-gb-mrh">Morning Rush Hour (RH)</h3>
+                            <div class="flex gap-2 items-center">
+                                <input type="time" id="mRhStart" onchange="updateGlobal('mRhStart', this.value)"> 
+                                <span class="text-slate-500 font-bold">~</span> 
+                                <input type="time" id="mRhEnd" onchange="updateGlobal('mRhEnd', this.value)">
                             </div>
                         </div>
                         <div>
-                            <h3 class="text-xs font-bold text-gray-700 mb-2" id="ui-gb-erh">Evening Rush Hour (RH)</h3>
-                            <div class="flex gap-2">
-                                <input type="time" id="eRhStart"> <span class="self-center text-xs">~</span> <input type="time" id="eRhEnd">
+                            <h3 class="text-sm font-bold text-slate-700 mb-2" id="ui-gb-erh">Evening Rush Hour (RH)</h3>
+                            <div class="flex gap-2 items-center">
+                                <input type="time" id="eRhStart" onchange="updateGlobal('eRhStart', this.value)"> 
+                                <span class="text-slate-500 font-bold">~</span> 
+                                <input type="time" id="eRhEnd" onchange="updateGlobal('eRhEnd', this.value)">
                             </div>
                         </div>
                     </div>
@@ -113,31 +159,36 @@
         </div>
 
         <!-- Right Panel: Chart -->
-        <div class="w-full md:w-3/5 p-4 flex flex-col bg-gray-100 h-1/2 md:h-full">
-            <div id="chart-container" class="flex-1 bg-white rounded-lg shadow border border-gray-200 relative p-2">
-                <!-- Plotly injects here -->
+        <div class="right-panel bg-slate-100 p-2 md:p-4 flex flex-col">
+            <div class="flex-1 bg-white rounded-xl shadow border border-slate-200 relative overflow-hidden flex flex-col">
+                <div id="chart-container" class="flex-1 w-full">
+                    <!-- Plotly injects here -->
+                </div>
             </div>
         </div>
     </div>
 
     <script>
+        // -----------------------------------------
+        // 1. STATE & I18N
+        // -----------------------------------------
         const i18n = {
             ko: {
-                title: "🚆 철도 배차 및 다이아그램 시뮬레이터", runBtn: "▶ 시뮬레이션 실행",
+                title: "🚆 고급 철도 배차 다이아그램 시뮬레이터", runBtn: "▶ 시뮬레이션 실행",
                 tabSt: "역 설정", tabCl: "열차 등급", tabGb: "전역 설정",
-                stTitle: "노선 및 역 목록", stAdd: "+ 역 추가", stDesc: "* 거리(Dist)는 다음 역까지의 거리. 주박(Stabling)은 심야 타절 가능 역을 의미합니다.",
+                stTitle: "노선 및 역 목록", stAdd: "+ 역 추가", stDesc: "* 거리(Dist)는 다음 역까지의 거리입니다.<br>* 주박(Stabling)에 체크된 역에서만 심야 타절이 가능합니다.",
                 clTitle: "열차 등급 설정", clAdd: "+ 등급 추가",
-                gbTitle: "전역 운행 설정", gbEnd: "영업 종료 시각 (막차 컷오프)", gbEndDesc: "이 시각을 초과하는 열차는 도달 가능한 주박역에서 조기 타절됩니다.",
+                gbTitle: "전역 운행 설정", gbEnd: "영업 종료 시각 (막차 컷오프)", gbEndDesc: "이 시각을 초과하여 운행하는 열차는 도달 가능한 '주박'역에서 즉시 조기 타절(점선 표시)됩니다.",
                 gbMrh: "오전 출근 혼잡시간 (RH)", gbErh: "오후 퇴근 혼잡시간 (RH)",
                 thDel: "삭제", thName: "역명", thDist: "거리(km)", thStabling: "주박",
                 clMaxV: "최고속도", clAcc: "가속", clDec: "감속", clDwell: "정차", clFirst: "첫차", clLast: "막차", clRh: "RH간격", clNh: "NH간격"
             },
             en: {
-                title: "🚆 Advanced Railway Simulator", runBtn: "▶ Run Simulation",
+                title: "🚆 Advanced Railway Scheduling Simulator", runBtn: "▶ Run Simulation",
                 tabSt: "Stations", tabCl: "Train Classes", tabGb: "Settings",
-                stTitle: "Route & Stations", stAdd: "+ Add Station", stDesc: "* Dist: distance to NEXT station. Stabling: late-night termination point.",
+                stTitle: "Route & Stations", stAdd: "+ Add Station", stDesc: "* Dist: distance to NEXT station.<br>* Stabling: late-night termination point.",
                 clTitle: "Train Classes", clAdd: "+ Add Class",
-                gbTitle: "Global Operations", gbEnd: "Operating End Time (Cutoff)", gbEndDesc: "Trains exceeding this time will terminate early at stabling stations.",
+                gbTitle: "Global Operations", gbEnd: "Operating End Time (Cutoff)", gbEndDesc: "Trains exceeding this time will terminate early at the nearest Stabling station (dotted lines).",
                 gbMrh: "Morning Rush Hour (RH)", gbErh: "Evening Rush Hour (RH)",
                 thDel: "Del", thName: "Station Name", thDist: "Dist(km)", thStabling: "Stabling",
                 clMaxV: "V.max", clAcc: "Accel", clDec: "Decel", clDwell: "Dwell", clFirst: "First", clLast: "Last", clRh: "RH(m)", clNh: "NH(m)"
@@ -145,9 +196,9 @@
             ja: {
                 title: "🚆 高級鉄道ダイヤシミュレーター", runBtn: "▶ 実行",
                 tabSt: "駅設定", tabCl: "列車種別", tabGb: "全般設定",
-                stTitle: "路線・駅一覧", stAdd: "+ 駅追加", stDesc: "* 距離(Dist)は次駅まで。滞泊(Stabling)は深夜の打ち切り可能駅です。",
+                stTitle: "路線・駅一覧", stAdd: "+ 駅追加", stDesc: "* 距離(Dist)は次駅まで。<br>* 滞泊(Stabling)は深夜の打ち切り可能駅です。",
                 clTitle: "列車種別設定", clAdd: "+ 種別追加",
-                gbTitle: "全般運行設定", gbEnd: "営業終了時刻（終電カットオフ）", gbEndDesc: "この時刻を超える列車は、到達可能な滞泊駅で打ち切られます。",
+                gbTitle: "全般運行設定", gbEnd: "営業終了時刻（終電カットオフ）", gbEndDesc: "この時刻を超える列車は、到達可能な滞泊駅で直ちに打ち切られます（点線表示）。",
                 gbMrh: "朝ラッシュ (RH)", gbErh: "夕ラッシュ (RH)",
                 thDel: "削除", thName: "駅名", thDist: "距離(km)", thStabling: "滞泊",
                 clMaxV: "最高速度", clAcc: "加速度", clDec: "減速度", clDwell: "停車", clFirst: "始発", clLast: "終発", clRh: "RH間隔", clNh: "NH間隔"
@@ -183,7 +234,7 @@
             ]
         };
 
-        // Initialize stops based on predefined rules
+        // Initialize stops based on default pattern
         appState.stations.forEach(s => {
             appState.classes[0].stops[s.id] = true; 
             appState.classes[1].stops[s.id] = ['st1', 'st5', 'st8', 'st12'].includes(s.id);
@@ -191,9 +242,11 @@
         });
 
         const genId = () => Math.random().toString(36).substr(2, 9);
-
         function t(key) { return i18n[currentLang][key]; }
 
+        // -----------------------------------------
+        // 2. UI & DOM MANIPULATION
+        // -----------------------------------------
         function applyI18n() {
             document.getElementById('ui-title').innerText = t('title');
             document.getElementById('ui-run-btn').innerText = t('runBtn');
@@ -203,13 +256,13 @@
             
             document.getElementById('ui-st-title').innerText = t('stTitle');
             document.getElementById('ui-st-add').innerText = t('stAdd');
-            document.getElementById('ui-st-desc').innerText = t('stDesc');
+            document.getElementById('ui-st-desc').innerHTML = t('stDesc');
             
             document.getElementById('ui-cl-title').innerText = t('clTitle');
             document.getElementById('ui-cl-add').innerText = t('clAdd');
             
             document.getElementById('ui-gb-title').innerText = t('gbTitle');
-            document.getElementById('ui-gb-end').innerText = t('gbEnd');
+            document.getElementById('ui-gb-end').innerHTML = `<span class="w-2 h-2 rounded-full bg-red-500 inline-block"></span> ${t('gbEnd')}`;
             document.getElementById('ui-gb-end-desc').innerText = t('gbEndDesc');
             document.getElementById('ui-gb-mrh').innerText = t('gbMrh');
             document.getElementById('ui-gb-erh').innerText = t('gbErh');
@@ -234,26 +287,26 @@
         function renderStationsTable() {
             const table = document.getElementById('stationsTable');
             let html = `<thead><tr>
-                <th class="w-8">${t('thDel')}</th>
-                <th>${t('thName')}</th>
+                <th class="w-8 sticky left-0 z-20">${t('thDel')}</th>
+                <th class="sticky left-[40px] z-20">${t('thName')}</th>
                 <th title="Distance to Next Station">${t('thDist')}</th>
                 <th title="Depot/Stabling">${t('thStabling')}</th>`;
             appState.classes.forEach(c => {
                 html += `<th style="color:${c.color}">${c.name}</th>`;
             });
-            html += `</tr></thead><tbody>`;
+            html += `</tr></thead><tbody class="bg-white">`;
 
             appState.stations.forEach((s, idx) => {
                 const isLast = idx === appState.stations.length - 1;
-                html += `<tr>
-                    <td><button onclick="removeStation('${s.id}')" class="text-red-500 font-bold hover:text-red-700">×</button></td>
-                    <td><input type="text" value="${s.name}" onchange="updateStation('${s.id}', 'name', this.value)" class="text-xs"></td>
-                    <td class="w-20"><input type="number" step="0.1" value="${s.dist}" onchange="updateStation('${s.id}', 'dist', this.value)" ${isLast ? 'disabled class="bg-gray-100"' : ''}></td>
+                html += `<tr class="hover:bg-slate-50 transition-colors">
+                    <td class="sticky left-0 bg-white z-10 border-r border-slate-200"><button onclick="removeStation('${s.id}')" class="text-red-500 font-bold hover:text-red-700 bg-red-50 w-6 h-6 rounded flex items-center justify-center mx-auto">×</button></td>
+                    <td class="sticky left-[40px] bg-white z-10 border-r border-slate-200 min-w-[120px]"><input type="text" value="${s.name}" onchange="updateStation('${s.id}', 'name', this.value)" class="text-xs border-0 bg-transparent focus:bg-white focus:ring-1"></td>
+                    <td class="w-20"><input type="number" step="0.1" value="${s.dist}" onchange="updateStation('${s.id}', 'dist', this.value)" ${isLast ? 'disabled class="bg-slate-100 text-slate-400"' : 'class="border-slate-300"'}></td>
                     <td><input type="checkbox" ${s.hasDepot ? 'checked' : ''} onchange="updateStation('${s.id}', 'hasDepot', this.checked)"></td>`;
                 
                 appState.classes.forEach(c => {
                     const isTerminus = idx === 0 || isLast;
-                    const disabled = isTerminus ? 'disabled' : ''; // Terminals must always be checked to prevent logic breakage
+                    const disabled = isTerminus ? 'disabled title="Terminals must stop"' : '';
                     html += `<td><input type="checkbox" ${c.stops[s.id] ? 'checked' : ''} ${disabled} onchange="updateStop('${c.id}', '${s.id}', this.checked)"></td>`;
                 });
                 html += `</tr>`;
@@ -267,23 +320,24 @@
             container.innerHTML = '';
             appState.classes.forEach(c => {
                 const card = document.createElement('div');
-                card.className = 'border border-gray-200 rounded p-3 bg-gray-50 flex flex-col gap-2 relative shadow-sm';
-                card.style.borderLeft = `4px solid ${c.color}`;
+                card.className = 'border border-slate-200 rounded-lg p-3 bg-white flex flex-col gap-3 relative shadow-sm hover:shadow-md transition-shadow';
+                card.style.borderLeft = `5px solid ${c.color}`;
                 card.innerHTML = `
-                    <button onclick="removeClass('${c.id}')" class="absolute top-2 right-2 text-red-500 hover:text-red-700 font-bold">×</button>
-                    <div class="flex gap-2 items-center">
-                        <input type="color" value="${c.color}" onchange="updateClass('${c.id}', 'color', this.value)" class="w-8 h-8 cursor-pointer p-0 border-0">
-                        <input type="text" value="${c.name}" onchange="updateClass('${c.id}', 'name', this.value)" class="font-bold text-sm w-2/3">
+                    <button onclick="removeClass('${c.id}')" class="absolute top-2 right-2 text-slate-400 hover:text-red-500 font-bold text-lg leading-none p-1">×</button>
+                    <div class="flex gap-2 items-center w-5/6">
+                        <input type="color" value="${c.color}" onchange="updateClass('${c.id}', 'color', this.value)" class="w-8 h-8 cursor-pointer shadow-sm">
+                        <input type="text" value="${c.name}" onchange="updateClass('${c.id}', 'name', this.value)" class="font-bold text-sm bg-slate-50 focus:bg-white flex-1">
                     </div>
-                    <div class="grid grid-cols-2 md:grid-cols-4 gap-2 text-xs">
-                        <div><label class="text-gray-500">${t('clMaxV')}</label><input type="number" value="${c.vmax}" onchange="updateClass('${c.id}', 'vmax', this.value)"></div>
-                        <div><label class="text-gray-500">${t('clAcc')}</label><input type="number" step="0.1" value="${c.accel}" onchange="updateClass('${c.id}', 'accel', this.value)"></div>
-                        <div><label class="text-gray-500">${t('clDec')}</label><input type="number" step="0.1" value="${c.decel}" onchange="updateClass('${c.id}', 'decel', this.value)"></div>
-                        <div><label class="text-gray-500">${t('clDwell')}(s)</label><input type="number" value="${c.dwell}" onchange="updateClass('${c.id}', 'dwell', this.value)"></div>
-                        <div><label class="text-gray-500">${t('clFirst')}</label><input type="time" value="${c.first}" onchange="updateClass('${c.id}', 'first', this.value)"></div>
-                        <div><label class="text-gray-500">${t('clLast')}</label><input type="time" value="${c.last}" onchange="updateClass('${c.id}', 'last', this.value)"></div>
-                        <div><label class="text-gray-500">${t('clRh')}</label><input type="number" value="${c.rh}" onchange="updateClass('${c.id}', 'rh', this.value)"></div>
-                        <div><label class="text-gray-500">${t('clNh')}</label><input type="number" value="${c.nh}" onchange="updateClass('${c.id}', 'nh', this.value)"></div>
+                    <div class="grid grid-cols-2 lg:grid-cols-4 gap-x-3 gap-y-2 text-xs">
+                        <div class="flex flex-col"><label class="text-slate-500 mb-1">${t('clMaxV')} (km/h)</label><input type="number" value="${c.vmax}" onchange="updateClass('${c.id}', 'vmax', this.value)"></div>
+                        <div class="flex flex-col"><label class="text-slate-500 mb-1">${t('clAcc')} (km/h/s)</label><input type="number" step="0.1" value="${c.accel}" onchange="updateClass('${c.id}', 'accel', this.value)"></div>
+                        <div class="flex flex-col"><label class="text-slate-500 mb-1">${t('clDec')} (km/h/s)</label><input type="number" step="0.1" value="${c.decel}" onchange="updateClass('${c.id}', 'decel', this.value)"></div>
+                        <div class="flex flex-col"><label class="text-slate-500 mb-1">${t('clDwell')} (sec)</label><input type="number" value="${c.dwell}" onchange="updateClass('${c.id}', 'dwell', this.value)"></div>
+                        
+                        <div class="flex flex-col"><label class="text-slate-500 mb-1">${t('clFirst')}</label><input type="time" value="${c.first}" onchange="updateClass('${c.id}', 'first', this.value)"></div>
+                        <div class="flex flex-col"><label class="text-slate-500 mb-1">${t('clLast')}</label><input type="time" value="${c.last}" onchange="updateClass('${c.id}', 'last', this.value)"></div>
+                        <div class="flex flex-col"><label class="text-slate-500 mb-1">${t('clRh')} (min)</label><input type="number" value="${c.rh}" onchange="updateClass('${c.id}', 'rh', this.value)"></div>
+                        <div class="flex flex-col"><label class="text-slate-500 mb-1">${t('clNh')} (min)</label><input type="number" value="${c.nh}" onchange="updateClass('${c.id}', 'nh', this.value)"></div>
                     </div>
                 `;
                 container.appendChild(card);
@@ -295,9 +349,16 @@
                 const el = document.getElementById(k);
                 if(el) {
                     el.value = appState.globals[k];
-                    el.onchange = (e) => appState.globals[k] = e.target.value;
                 }
             });
+        }
+
+        // -----------------------------------------
+        // 3. EVENT HANDLERS & STATE UPDATES
+        // -----------------------------------------
+        function updateGlobal(key, value) {
+            appState.globals[key] = value;
+            runSimulation(); // Trigger re-render on setting change
         }
 
         function addStation() {
@@ -305,55 +366,71 @@
             appState.stations.push({ id: newId, name: 'New Station', dist: 2.0, hasDepot: false });
             appState.classes.forEach(c => c.stops[newId] = true);
             renderStationsTable();
+            runSimulation();
         }
         function removeStation(id) {
             if(appState.stations.length <= 2) {
-                console.warn("Minimum 2 stations required.");
+                alert("Minimum 2 stations required.");
                 return;
             }
             appState.stations = appState.stations.filter(s => s.id !== id);
             const fId = appState.stations[0].id;
             const lId = appState.stations[appState.stations.length-1].id;
-            appState.classes.forEach(c => { c.stops[fId] = true; c.stops[lId] = true; });
+            appState.classes.forEach(c => { c.stops[fId] = true; c.stops[lId] = true; }); // Ensure terminals always stop
             renderStationsTable();
+            runSimulation();
         }
         function updateStation(id, field, value) {
             const st = appState.stations.find(s => s.id === id);
             st[field] = field === 'hasDepot' ? value : (field === 'dist' ? parseFloat(value) : value);
-            if(field === 'dist') renderStationsTable();
+            if(field === 'dist' || field === 'hasDepot') {
+                renderStationsTable();
+                runSimulation();
+            }
         }
         function updateStop(classId, stId, checked) {
             appState.classes.find(c => c.id === classId).stops[stId] = checked;
+            runSimulation();
         }
 
         function addClass() {
             const newId = genId();
             let stops = {};
             appState.stations.forEach(s => stops[s.id] = true);
-            appState.classes.push({ id: newId, name: 'New Class', color: '#000000', vmax: 90, accel: 3.0, decel: 3.0, dwell: 30, first: '06:00', last: '00:00', rh: 10, nh: 20, stops: stops });
+            appState.classes.push({ id: newId, name: 'New Class', color: '#0ea5e9', vmax: 90, accel: 3.0, decel: 3.0, dwell: 30, first: '06:00', last: '23:30', rh: 10, nh: 20, stops: stops });
             renderClassesList();
             renderStationsTable();
+            runSimulation();
         }
         function removeClass(id) {
             appState.classes = appState.classes.filter(c => c.id !== id);
             renderClassesList();
             renderStationsTable();
+            runSimulation();
         }
         function updateClass(id, field, value) {
             const cl = appState.classes.find(c => c.id === id);
             cl[field] = ['color', 'name', 'first', 'last'].includes(field) ? value : parseFloat(value);
+            if(field === 'color' || field === 'name') renderStationsTable();
+            runSimulation();
         }
 
+        // -----------------------------------------
+        // 4. PHYSICS & MATH ENGINE
+        // -----------------------------------------
         function parseTimeMins(timeStr) {
             if (!timeStr) return 0;
             let [h, m] = timeStr.split(':').map(Number);
             return h * 60 + m;
         }
+        
         function minsToDate(mins) {
+            // Using a static date base (Jan 1, 2000) for standard axis mapping
             const d = new Date(2000, 0, 1, 0, 0, 0);
             d.setMinutes(mins);
             return d;
         }
+        
         function isRH(mins) {
             let hm = mins % (24 * 60);
             let ms = parseTimeMins(appState.globals.mRhStart), me = parseTimeMins(appState.globals.mRhEnd);
@@ -361,7 +438,7 @@
             return (hm >= ms && hm <= me) || (hm >= es && hm <= ee);
         }
 
-        // Calculates physical time required to traverse a segment of dist_m starting and ending at 0 speed.
+        // Calculates physical time required to traverse a segment (starting and ending at 0 speed).
         function solveSegment(dist_m, vmax_ms, accel_ms2, decel_ms2) {
             const t_a = vmax_ms / accel_ms2;
             const t_d = vmax_ms / decel_ms2;
@@ -390,7 +467,7 @@
             }
         }
 
-        // Calculates time taken to reach distance X within a given physics profile
+        // Calculates time taken to reach distance X within a given physics profile segment
         function getTimeAtDist(prof, x) {
             if (x <= 0) return 0;
             if (x <= prof.d_a) {
@@ -404,26 +481,31 @@
             }
         }
 
+        // -----------------------------------------
+        // 5. SIMULATION & RENDER (Plotly)
+        // -----------------------------------------
         function runSimulation() {
             const stations = appState.stations;
             const classes = appState.classes;
+            
+            // Handle Global Operating End Time (Cutoff)
             let opEndMins = parseTimeMins(appState.globals.opEnd);
-
-            // Fix for past-midnight operating end time (e.g., 01:30 becomes next day)
+            // If the cutoff time is small (e.g. 01:30) and implies next day logic
             if (opEndMins < 12 * 60) {
-                opEndMins += 24 * 60;
+                opEndMins += 24 * 60; // Add 24 hours
             }
 
+            // Map cumulative distances
             let currentDist = 0;
-            const stData = stations.map(s => {
-                const data = { ...s, cumDist: currentDist };
-                currentDist += s.dist;
+            const stData = stations.map((s, idx) => {
+                const data = { ...s, cumDist: currentDist, originalIndex: idx };
+                if (idx < stations.length - 1) currentDist += s.dist;
                 return data;
             });
 
             let traces = [];
 
-            // Generator for Down and Up directions
+            // Core Logic for generating schedule per direction
             function simulateDirection(direction) {
                 classes.forEach(cClass => {
                     const vmax = cClass.vmax / 3.6;
@@ -439,18 +521,20 @@
                         lastMins += 24 * 60;
                     }
 
+                    // Generate departure times
                     let deps = [];
-                    // offset start for up direction to stagger trains
-                    let t = firstMins + (direction === 'up' ? (isRH(firstMins)?cClass.rh/2:cClass.nh/2) : 0);
+                    // offset start for up direction to stagger trains slightly (prevents pure overlap in visual)
+                    let t = firstMins + (direction === 'up' ? (isRH(firstMins) ? cClass.rh/2 : cClass.nh/2) : 0);
                     while (t <= lastMins) {
                         deps.push(t);
                         t += isRH(t) ? cClass.rh : cClass.nh;
                     }
 
+                    // Sequence of stations based on direction
                     let routeStops = [];
                     let stSequence = direction === 'down' ? stData : [...stData].reverse();
                     
-                    stSequence.forEach((st, idx) => {
+                    stSequence.forEach((st) => {
                         routeStops.push({
                             id: st.id,
                             name: st.name,
@@ -472,11 +556,13 @@
                         }
                     }
 
+                    // Calculate timeline for each train instance
                     deps.forEach(depTime => {
                         let schedule = []; 
                         let currentMin = depTime;
                         let segmentIdx = 0;
 
+                        // Start at Terminal
                         schedule.push({ idx: 0, st: routeStops[0], arr: currentMin, dep: currentMin });
 
                         for (let i = 1; i < routeStops.length; i++) {
@@ -495,10 +581,11 @@
                             }
                         }
 
-                        // Late Night Stabling Logic
+                        // Late Night Stabling Logic based on Global Cutoff (opEndMins)
                         const finalArr = schedule[schedule.length - 1].arr;
                         let isStabling = false;
                         let validSchedule = schedule;
+                        let stablingTrace = null; // To draw dashed line after cutoff
 
                         if (finalArr > opEndMins) {
                             isStabling = true;
@@ -510,8 +597,27 @@
                                     break;
                                 }
                             }
-                            if (terminateIdx === -1) return; // Cancel train completely if it can't even reach the first depot
+                            
+                            if (terminateIdx === -1) {
+                                return; // Cancel train completely if it can't even reach the first depot before cutoff
+                            }
+
+                            // Keep valid service
                             validSchedule = schedule.slice(0, terminateIdx + 1);
+                            
+                            // Generate Stabling (Dotted) Trace for the remainder of the journey it was supposed to take
+                            // Visualizing it returning or stopping operation. We'll just show it going out of service.
+                            let stabledX = [];
+                            let stabledY = [];
+                            schedule.slice(terminateIdx).forEach(p => {
+                                stabledX.push(minsToDate(p.arr));
+                                stabledY.push(p.st.cumDist);
+                            });
+                            stablingTrace = {
+                                x: stabledX, y: stabledY, mode: 'lines', name: 'Out of Service',
+                                line: { color: cClass.color, width: 1.5, dash: 'dot' },
+                                opacity: 0.5, hoverinfo: 'skip', showlegend: false
+                            };
                         }
 
                         let x_vals = [];
@@ -532,14 +638,12 @@
                             y: y_vals,
                             mode: 'lines',
                             name: cClass.name,
-                            line: {
-                                color: cClass.color,
-                                width: 1.5,
-                                dash: isStabling ? 'dashdot' : 'solid' // Dashed for early termination
-                            },
+                            line: { color: cClass.color, width: 1.5 },
                             hoverinfo: 'name+x+y',
                             showlegend: false
                         });
+
+                        if (stablingTrace) traces.push(stablingTrace);
                     });
                 });
             }
@@ -547,15 +651,20 @@
             simulateDirection('down');
             simulateDirection('up');
 
+            // Find global min/max time to frame chart nicely
+            let minDate = minsToDate(4 * 60); // Default to 4 AM
+            let maxDate = minsToDate(opEndMins + 60); // 1 hr past cutoff
+
             const layout = {
-                margin: { l: 120, r: 30, t: 30, b: 50 },
+                margin: { l: 80, r: 20, t: 30, b: 40 }, // optimized margins for mobile
                 xaxis: {
-                    title: 'Time',
+                    title: '',
                     type: 'date',
                     tickformat: '%H:%M',
                     showgrid: true,
-                    gridcolor: '#f1f5f9',
+                    gridcolor: '#e2e8f0',
                     hoverformat: '%H:%M',
+                    range: [minDate, maxDate]
                 },
                 yaxis: {
                     title: '',
@@ -564,31 +673,57 @@
                     gridcolor: '#e2e8f0',
                     tickvals: stData.map(s => s.cumDist),
                     ticktext: stData.map(s => s.name),
-                    zeroline: false
+                    zeroline: false,
+                    tickfont: { size: 11 }
                 },
                 plot_bgcolor: '#ffffff',
                 paper_bgcolor: '#ffffff',
                 hovermode: 'closest',
+                autosize: true, // responsive
                 shapes: [
                     {
+                        // Dynamic Global Operating Cutoff Line
                         type: 'line',
                         x0: minsToDate(opEndMins).getTime(),
                         x1: minsToDate(opEndMins).getTime(),
                         y0: 0,
                         y1: stData[stData.length-1].cumDist,
-                        line: { color: '#ef4444', width: 2, dash: 'dot' } // Red line for operating end
+                        line: { color: '#ef4444', width: 2, dash: 'dash' },
+                        layer: 'above'
+                    }
+                ],
+                annotations: [
+                    {
+                        x: minsToDate(opEndMins).getTime(),
+                        y: stData[0].cumDist,
+                        xref: 'x', yref: 'y',
+                        text: 'Cutoff',
+                        showarrow: true,
+                        arrowhead: 2, ax: -30, ay: -20,
+                        font: { color: '#ef4444', size: 10 },
+                        bgcolor: 'white', bordercolor: '#ef4444'
                     }
                 ]
             };
 
-            Plotly.react('chart-container', traces, layout, { responsive: true });
+            const config = { responsive: true, displayModeBar: false };
+
+            Plotly.react('chart-container', traces, layout, config);
         }
 
+        // -----------------------------------------
+        // 6. INITIALIZATION
+        // -----------------------------------------
         window.onload = () => {
             applyI18n();
             renderGlobals();
             runSimulation();
         };
+
+        // Redraw on resize for safety (Plotly responsive handles most, but Flexbox sometimes needs a bump)
+        window.addEventListener('resize', () => {
+            Plotly.Plots.resize('chart-container');
+        });
     </script>
 </body>
 </html>
